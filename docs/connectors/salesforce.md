@@ -22,7 +22,7 @@
   - [Programmatic Provisioning](#programmatic-provisioning)
 - [Supported Object Types & Field Mapping](#supported-object-types--field-mapping)
 - [Known Limitations](#known-limitations)
-- [Genesys AI-KB Deployment Notes](#genesys-ai-kb-deployment-notes)
+- [Enterprise AI-KB Deployment Notes](#enterprise-ai-kb-deployment-notes)
 - [Technical Q&A](#technical-qa)
 
 ---
@@ -31,7 +31,7 @@
 
 The Elastic Salesforce Connector synchronises records from Salesforce objects (Knowledge Articles, Cases, Solutions, custom objects) into Elasticsearch using the **Salesforce REST API** and **Bulk API 2.0**. Change detection uses a **high-watermark timestamp** — the connector queries for records with `LastModifiedDate > last_sync_timestamp`, which is native to Salesforce's SOQL query language and requires no server-side cursor infrastructure.
 
-In the Genesys AI-KB architecture, the Salesforce connector is particularly important because Genesys customers' primary knowledge sources are often Salesforce Knowledge articles — the structured FAQs, troubleshooting guides, and product documentation that contact centre agents need during live calls.
+In the Enterprise AI-KB architecture, the Salesforce connector is particularly important because enterprise customers' primary knowledge sources are often Salesforce Knowledge articles — the structured FAQs, troubleshooting guides, and product documentation that contact centre agents need during live calls.
 
 ```
 Salesforce Org (Knowledge Articles, Cases, custom objects)
@@ -117,7 +117,7 @@ Records returned: only those modified after that timestamp
 
 The connector supports these Salesforce object types by default:
 
-| Object | SOQL table | Typical use for Genesys |
+| Object | SOQL table | Typical use for this deployment |
 |---|---|---|
 | Salesforce Knowledge Articles | `Knowledge__kav` | Primary knowledge base content — FAQs, troubleshooting guides |
 | Cases | `Case` | Resolved case descriptions and solutions |
@@ -128,7 +128,7 @@ The connector supports these Salesforce object types by default:
 | Opportunities | `Opportunity` | Deal context (less common for KB use case) |
 | Custom objects | configurable | Any custom `__c` objects with relevant knowledge content |
 
-For Genesys AI-KB, the primary objects are `Knowledge__kav` and `Case`. Others can be enabled or disabled in configuration.
+For Enterprise AI-KB, the primary objects are `Knowledge__kav` and `Case`. Others can be enabled or disabled in configuration.
 
 ---
 
@@ -169,7 +169,7 @@ After 15 days in the Recycle Bin, records are permanently deleted and no longer 
 | Case deflection — indexing resolved cases | ✅ Use | Case records with resolution notes are valuable KB content. Filter by `Status = 'Closed'`. |
 | Custom Salesforce objects with knowledge content | ✅ Use | Any `__c` object with text fields can be configured as a sync target. |
 | Salesforce org with <10,000 Knowledge articles | ✅ Use | Well within API governor limits for hourly incremental sync. |
-| Multi-org Salesforce setup (per Genesys customer) | ✅ Use | One connector instance per Salesforce org. Standard pattern. |
+| Multi-org Salesforce setup (per enterprise customer) | ✅ Use | One connector instance per Salesforce org. Standard pattern. |
 | Salesforce org with >500K records across all objects | ⚠️ Partial | Monitor API governor limits. Initial full sync may take several hours. |
 | Salesforce Files / ContentVersion (large attachments) | ⚠️ Partial | Binary attachment extraction works but 10 MB Tika limit applies. Large attached PDFs may be skipped. |
 | Real-time sync (<5 min latency) | ⚠️ Partial | Salesforce doesn't support webhooks for the connector. Minimum cron interval is 1 minute. |
@@ -199,9 +199,9 @@ After 15 days in the Recycle Bin, records are permanently deleted and no longer 
 ```
 Salesforce Setup → Apps → App Manager → New Connected App
 
-Connected App Name:  genesys-elastic-connector
-API Name:            genesys_elastic_connector
-Contact Email:       platform-team@genesys.com
+Connected App Name:  enterprise-elastic-connector
+API Name:            enterprise_elastic_connector
+Contact Email:       platform-team@example.com
 
 Enable OAuth Settings: ✅
 Callback URL:          https://login.salesforce.com/services/oauth2/callback
@@ -338,9 +338,9 @@ def provision_salesforce_connector(
 
 ---
 
-## Genesys AI-KB Deployment Notes
+## Enterprise AI-KB Deployment Notes
 
-For Genesys, each enterprise customer has their own Salesforce org. The deployment pattern is:
+For this deployment, each enterprise customer has their own Salesforce org. The deployment pattern is:
 
 - **One Connected App per Salesforce org** (per customer)
 - **One Salesforce API user per org** — dedicated service account, read-only profile
@@ -423,7 +423,7 @@ Salesforce Knowledge supports articles in multiple languages as separate records
 
 The connector indexes each language version as a separate Elasticsearch document with its own `_id`. This means a Knowledge article with English, French, and Spanish versions creates 3 Elasticsearch documents.
 
-For the Genesys use case, this is the correct behaviour — each language version should be independently searchable. Ensure your index mapping includes the `language` field so you can filter search results by language at query time:
+For the the customer use case, this is the correct behaviour — each language version should be independently searchable. Ensure your index mapping includes the `language` field so you can filter search results by language at query time:
 
 ```json
 GET search-kb-tenant-123/_search
@@ -441,4 +441,4 @@ GET search-kb-tenant-123/_search
 
 ---
 
-*Connector version: Elastic 8.x · Last updated: 2025 · Genesys AI-KB internal reference*
+*Connector version: Elastic 8.x · Last updated: 2025 · Enterprise AI-KB internal reference*

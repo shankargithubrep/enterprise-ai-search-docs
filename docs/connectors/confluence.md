@@ -20,7 +20,7 @@
   - [Programmatic Provisioning](#programmatic-provisioning)
 - [Supported Content Types & Field Mapping](#supported-content-types--field-mapping)
 - [Known Limitations](#known-limitations)
-- [Genesys AI-KB Deployment Notes](#genesys-ai-kb-deployment-notes)
+- [Enterprise AI-KB Deployment Notes](#enterprise-ai-kb-deployment-notes)
 - [Technical Q&A](#technical-qa)
 
 ---
@@ -29,7 +29,7 @@
 
 The Elastic Confluence Connector synchronises pages, blog posts, and attachments from Confluence into Elasticsearch. It supports both **Confluence Cloud** (Atlassian Cloud SaaS) and **Confluence Data Center** (self-managed). Change detection uses a per-space timestamp watermark — the connector queries each space for content modified after the stored timestamp.
 
-In the Genesys AI-KB architecture, the Confluence connector indexes internal team knowledge — runbooks, product documentation, onboarding guides, and process wikis that contact centre agents reference during customer interactions.
+In the Enterprise AI-KB architecture, the Confluence connector indexes internal team knowledge — runbooks, product documentation, onboarding guides, and process wikis that contact centre agents reference during customer interactions.
 
 ```
 Confluence (Cloud or Data Center)
@@ -189,7 +189,7 @@ For Confluence Cloud, create the API token at:
 ```
 https://id.atlassian.com/manage-profile/security/api-tokens
 → Create API token
-→ Label: genesys-elastic-connector
+→ Label: enterprise-elastic-connector
 → Copy token (shown once)
 ```
 
@@ -298,13 +298,13 @@ def provision_confluence_connector(
 
 ---
 
-## Genesys AI-KB Deployment Notes
+## Enterprise AI-KB Deployment Notes
 
-For Genesys, each enterprise customer uses either Confluence Cloud or their own Confluence Data Center instance. The connector handles both, but the auth and URL format differ.
+For this deployment, each enterprise customer uses either Confluence Cloud or their own Confluence Data Center instance. The connector handles both, but the auth and URL format differ.
 
 **Recommended space key allowlist per customer onboarding:**
 
-Work with the customer to identify which Confluence spaces contain knowledge base content. Typical allowlist for a Genesys customer:
+Work with the customer to identify which Confluence spaces contain knowledge base content. Typical allowlist for a enterprise customer:
 
 ```python
 space_keys = [
@@ -391,4 +391,4 @@ Mitigation: Track Elastic connector release notes for Confluence v2 migration. B
 
 ---
 
-*Connector version: Elastic 8.x · Last updated: 2025 · Genesys AI-KB internal reference*
+*Connector version: Elastic 8.x · Last updated: 2025 · Enterprise AI-KB internal reference*

@@ -1,6 +1,6 @@
 # Chunking Strategies
 
-> **Context:** Genesys AI-KB hybrid search deployment · **Embedding model:** Jina Embeddings v3 (8,192 token context window) · **Search type:** BM25 + kNN ANN with RRF fusion
+> **Context:** Enterprise AI-KB hybrid search deployment · **Embedding model:** Jina Embeddings v3 (8,192 token context window) · **Search type:** BM25 + kNN ANN with RRF fusion
 
 ---
 
@@ -21,7 +21,7 @@
 - [Elasticsearch-Native Chunking (semantic_text)](#elasticsearch-native-chunking-semantic_text)
 - [Chunking for Specific Document Types](#chunking-for-specific-document-types)
 - [Performance & Tradeoffs Matrix](#performance--tradeoffs-matrix)
-- [Genesys AI-KB Recommended Configuration](#genesys-ai-kb-recommended-configuration)
+- [Enterprise AI-KB Recommended Configuration](#enterprise-ai-kb-recommended-configuration)
 - [Technical Q&A](#technical-qa)
 
 ---
@@ -68,7 +68,7 @@ Jina Embeddings v3 supports **8,192 tokens** (~6,000 words). This changes the ch
 | Jina v3 | **8,192 tokens** | ~6,000 words | Most KB articles fit in ONE chunk |
 | Jina v3 (ColBERT mode) | 8,192 tokens | ~6,000 words | Late interaction — different tradeoffs |
 
-**Practical implication for Genesys:**
+**Practical implication for multi-tenant deployments:**
 
 A typical knowledge base article of 500–2,000 words fits comfortably within Jina v3's 8,192 token window **without chunking**. Chunking is only necessary for:
 
@@ -282,7 +282,7 @@ PUT /search-kb-tenant-123
 
 **When not to use:**
 - ❌ Storage overhead is high — each sentence is a separate document
-- ❌ For Genesys KB (5,000 docs × avg 100 sentences = 500K sentence documents per tenant) — significantly increases index size and shard count
+- ❌ For this deployment KB (5,000 docs × avg 100 sentences = 500K sentence documents per tenant) — significantly increases index size and shard count
 - ❌ BM25 at sentence level loses document-level term frequency context
 
 ---
@@ -352,7 +352,7 @@ parent_docs = es.mget(index=f"search-kb-{tenant_id}", ids=parent_ids)
 
 **When to use:**
 - ✅ Best balance of retrieval precision and response context richness
-- ✅ Recommended for Genesys AI-KB — most KBs have medium-length documents (1-10 pages)
+- ✅ Recommended for Enterprise AI-KB — most KBs have medium-length documents (1-10 pages)
 - ✅ Efficient storage — parents stored once, children are small
 
 **When not to use:**
@@ -382,7 +382,7 @@ summary_ingest_pipeline = {
         },
         {
             "inference": {
-                "model_id": "genesys-jina-v3",
+                "model_id": "enterprise-jina-v3",
                 "input_output": [
                     {"input_field": "summary", "output_field": "summary_embedding"}
                 ]
@@ -418,7 +418,7 @@ from langchain.text_splitter import (
 )
 from langchain_elasticsearch import ElasticsearchStore
 
-# Recommended for Genesys KB:
+# Recommended for this deployment KB:
 splitter = RecursiveCharacterTextSplitter(
     chunk_size      = 1000,
     chunk_overlap   = 200,
@@ -521,7 +521,7 @@ index = VectorStoreIndex.from_documents(
 )
 ```
 
-**LlamaIndex vs LangChain for Genesys:**
+**LlamaIndex vs LangChain for the customer:**
 
 | | LangChain | LlamaIndex |
 |---|---|---|
@@ -545,7 +545,7 @@ PUT /search-kb-tenant-123
     "properties": {
       "body": {
         "type": "semantic_text",
-        "inference_id": "genesys-jina-v3"
+        "inference_id": "enterprise-jina-v3"
       },
       "title": { "type": "text" }
     }
@@ -563,7 +563,7 @@ PUT /search-kb-tenant-123
 **Default chunking config for `semantic_text`:**
 
 ```json
-PUT _inference/text_embedding/genesys-jina-v3
+PUT _inference/text_embedding/enterprise-jina-v3
 {
   "service": "elasticsearch",
   "service_settings": {
@@ -678,9 +678,9 @@ chunks = splitter.split_text(html_content)
 
 ---
 
-## Genesys AI-KB Recommended Configuration
+## Enterprise AI-KB Recommended Configuration
 
-Based on the Genesys deployment parameters (50 tenants × 5,000 docs × 1 MB avg, Jina v3 8,192 token window):
+Based on the the deployment parameters (50 tenants × 5,000 docs × 1 MB avg, Jina v3 8,192 token window):
 
 **For documents under 3,000 words (~4,000 tokens):**
 
@@ -744,7 +744,7 @@ Compared to LangChain's RecursiveCharacterTextSplitter:
 | Respect for headers | No | No (use HTMLHeaderTextSplitter for that) |
 | Configuration location | Inference endpoint `chunking_settings` | Splitter constructor parameters |
 
-For Genesys KB content, the default `semantic_text` sentence chunking with `max_chunk_size: 250` tokens produces chunks of ~1,500–2,000 characters — comparable to `RecursiveCharacterTextSplitter(chunk_size=1500)`. The main practical difference is that `semantic_text` guarantees sentence-complete chunks while recursive character splitting may split mid-sentence when a paragraph is very long.
+For this deployment KB content, the default `semantic_text` sentence chunking with `max_chunk_size: 250` tokens produces chunks of ~1,500–2,000 characters — comparable to `RecursiveCharacterTextSplitter(chunk_size=1500)`. The main practical difference is that `semantic_text` guarantees sentence-complete chunks while recursive character splitting may split mid-sentence when a paragraph is very long.
 
 </details>
 
@@ -757,7 +757,7 @@ Jina AI's own benchmarking for jina-embeddings-v3 on retrieval tasks suggests:
 - Optimal chunk size: **512–1024 tokens** for context-rich retrieval (explanatory content, procedures)
 - Overlap: **10–15% of chunk size** — beyond 20% overlap produces diminishing returns and inflates index size
 
-For Genesys KB content (mix of FAQ articles, SOPs, and longer policy documents):
+For this deployment KB content (mix of FAQ articles, SOPs, and longer policy documents):
 
 ```python
 # FAQ / troubleshooting content:
@@ -794,12 +794,12 @@ Mitigations:
 
 3. **Reduce overlap** — if duplicate retrieval is a visible UX problem, reduce overlap from 15% to 5%. Precision drops slightly but duplicate results are less frequent.
 
-4. **Accept it** — for Genesys KB (knowledge retrieval for agent assist), the top-1 or top-3 results are what matters. Duplicate chunks in positions 4–10 of the result set don't affect agent experience.
+4. **Accept it** — for this deployment KB (knowledge retrieval for agent assist), the top-1 or top-3 results are what matters. Duplicate chunks in positions 4–10 of the result set don't affect agent experience.
 
 </details>
 
 <details>
-<summary><strong>How do you handle multilingual documents in the Genesys deployment — does chunking strategy change for non-English content?</strong></summary>
+<summary><strong>How do you handle multilingual documents in the the deployment — does chunking strategy change for non-English content?</strong></summary>
 
 Jina v3 is natively multilingual — trained on data in 89 languages. Chunking strategy is largely language-agnostic for the semantic embedding step.
 
@@ -821,10 +821,10 @@ import jieba  # Chinese word segmentation
 
 **Character vs token counting:** Languages with multi-byte characters (CJK, Arabic, Hebrew) have different characters-per-token ratios. Chinese text has ~1.5 characters per token vs ~4 characters per token for English. A `chunk_size=1000` characters is ~700 tokens for English but only ~150 tokens for Chinese. Use token-based chunking (via tiktoken or sentencepiece) for consistent chunk sizes across languages.
 
-**Genesys deployment:** If customers have multilingual knowledge bases, use `TokenTextSplitter` with explicit `encoding_name="cl100k_base"` (OpenAI's tokeniser — close enough for cross-language token count estimation) and set `chunk_size=512` tokens regardless of language.
+**the deployment:** If customers have multilingual knowledge bases, use `TokenTextSplitter` with explicit `encoding_name="cl100k_base"` (OpenAI's tokeniser — close enough for cross-language token count estimation) and set `chunk_size=512` tokens regardless of language.
 
 </details>
 
 ---
 
-*Last updated: 2025 · Genesys AI-KB internal reference · Elastic 8.x + Jina Embeddings v3*
+*Last updated: 2025 · Enterprise AI-KB internal reference · Elastic 8.x + Jina Embeddings v3*

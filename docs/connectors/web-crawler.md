@@ -21,7 +21,7 @@
   - [Programmatic Provisioning](#programmatic-provisioning)
 - [Content Extraction & Field Mapping](#content-extraction--field-mapping)
 - [Known Limitations](#known-limitations)
-- [Genesys AI-KB Deployment Notes](#genesys-ai-kb-deployment-notes)
+- [Enterprise AI-KB Deployment Notes](#enterprise-ai-kb-deployment-notes)
 - [Technical Q&A](#technical-qa)
 
 ---
@@ -30,7 +30,7 @@
 
 The Elastic Web Crawler is a native Elasticsearch crawler that fetches web pages, extracts text content, and indexes it into Elasticsearch. Unlike the document connectors (S3, SharePoint, Salesforce), the web crawler works with **live URLs** — it fetches pages via HTTP/HTTPS, extracts content from the HTML, and follows links to discover new pages.
 
-In the Genesys AI-KB architecture, the web crawler is used for indexing **public or internal web-based knowledge sources** — product documentation sites, help centres, support portals, and internal wikis that are served as websites rather than stored in a document management system.
+In the Enterprise AI-KB architecture, the web crawler is used for indexing **public or internal web-based knowledge sources** — product documentation sites, help centres, support portals, and internal wikis that are served as websites rather than stored in a document management system.
 
 ```
 Target Website (public or internal)
@@ -346,11 +346,11 @@ es.connector.put(
 
 ---
 
-## Genesys AI-KB Deployment Notes
+## Enterprise AI-KB Deployment Notes
 
-The web crawler is typically used in Genesys deployments for:
+The web crawler is typically used in multi-tenant deployments for:
 
-1. **Customer-facing knowledge portals** — Help centre sites that Genesys customers maintain as web properties
+1. **Customer-facing knowledge portals** — Help centre sites that enterprise customers maintain as web properties
 2. **Product documentation sites** — Vendor documentation that agents need (e.g. software vendor docs, API references)
 3. **Internal web-based wikis** — Confluence-alternative tools like Notion (web-accessible), GitBook, ReadTheDocs
 
@@ -426,4 +426,4 @@ The choice depends on the site's content structure. For knowledge base sites whe
 
 ---
 
-*Connector version: Elastic 8.x · Last updated: 2025 · Genesys AI-KB internal reference*
+*Connector version: Elastic 8.x · Last updated: 2025 · Enterprise AI-KB internal reference*

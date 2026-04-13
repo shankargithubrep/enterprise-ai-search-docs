@@ -37,7 +37,7 @@ jobs:
       - name: Combine markdown files
         run: |
           VERSION="${{ steps.version.outputs.label }}"
-          OUT="genesys-ai-search-connector-docs-${VERSION}.pdf"
+          OUT="ai-search-connector-docs-${VERSION}.pdf"
 
           # Build ordered list: README first, then connectors alphabetically, then chunking
           FILES="README.md"
@@ -62,7 +62,7 @@ jobs:
             --variable colorlinks=true \
             --variable linkcolor=teal \
             --variable urlcolor=teal \
-            --metadata title="Genesys AI Search — Elastic Connector & Crawler Reference" \
+            --metadata title="Enterprise AI Search — Elastic Connector & Crawler Reference" \
             --metadata author="Elastic Solutions Architecture" \
             --metadata date="${VERSION}" \
             -o "$OUT"

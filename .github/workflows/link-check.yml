@@ -1,0 +1,48 @@
+name: Link Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.md"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**/*.md"
+  schedule:
+    # Run every Monday at 08:00 UTC to catch external links going stale
+    - cron: "0 8 * * 1"
+
+jobs:
+  link-check:
+    name: Check Links
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check links
+        uses: lycheeverse/lychee-action@v1
+        with:
+          args: >-
+            --verbose
+            --no-progress
+            --accept 200,204,206,429
+            --timeout 20
+            --max-retries 3
+            --exclude "^mailto:"
+            --exclude "localhost"
+            --exclude "127.0.0.1"
+            --exclude "github.com/settings"
+            "**/*.md"
+          fail: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload link check report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: link-check-report
+          path: lychee/out.md
+          retention-days: 7

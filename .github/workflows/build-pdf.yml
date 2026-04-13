@@ -1,0 +1,85 @@
+name: Build PDF on Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version label for the PDF (e.g. v1.0)"
+        required: true
+        default: "latest"
+
+jobs:
+  build-pdf:
+    name: Compile connector docs to PDF
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version label
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "label=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "label=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install pandoc + LaTeX
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y pandoc texlive-xetex texlive-fonts-recommended \
+            texlive-latex-extra fonts-liberation
+
+      - name: Combine markdown files
+        run: |
+          VERSION="${{ steps.version.outputs.label }}"
+          OUT="genesys-ai-search-connector-docs-${VERSION}.pdf"
+
+          # Build ordered list: README first, then connectors alphabetically, then chunking
+          FILES="README.md"
+          for f in $(ls docs/connectors/*.md 2>/dev/null | sort); do
+            FILES="$FILES $f"
+          done
+          for f in $(ls docs/chunking/*.md 2>/dev/null | sort); do
+            FILES="$FILES $f"
+          done
+
+          echo "Building PDF from: $FILES"
+
+          pandoc $FILES \
+            --pdf-engine=xelatex \
+            --toc \
+            --toc-depth=2 \
+            --highlight-style=tango \
+            --variable geometry:margin=2cm \
+            --variable fontsize=10pt \
+            --variable mainfont="Liberation Serif" \
+            --variable monofont="Liberation Mono" \
+            --variable colorlinks=true \
+            --variable linkcolor=teal \
+            --variable urlcolor=teal \
+            --metadata title="Genesys AI Search — Elastic Connector & Crawler Reference" \
+            --metadata author="Elastic Solutions Architecture" \
+            --metadata date="${VERSION}" \
+            -o "$OUT"
+
+          echo "PDF_FILE=$OUT" >> $GITHUB_ENV
+
+      - name: Upload PDF as release asset
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.PDF_FILE }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload PDF as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: connector-docs-pdf
+          path: ${{ env.PDF_FILE }}
+          retention-days: 30

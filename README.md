@@ -9,19 +9,19 @@
 
 | Connector | Sync Mode | Auth | Status |
 |---|---|---|---|
-| [AWS S3](docs/connectors/s3.md) | Poll-based (incremental + full) | IAM Roles / Access Keys | ✅ Draft |
-| [SharePoint Online](docs/connectors/sharepoint.md) | Delta query (MS Graph API) | OAuth 2.0 / Azure AD app | 🔜 Coming soon |
-| [Salesforce](docs/connectors/salesforce.md) | High-watermark timestamp | OAuth 2.0 | 🔜 Coming soon |
-| [ServiceNow](docs/connectors/servicenow.md) | High-watermark timestamp | Basic / OAuth | 🔜 Coming soon |
-| [Confluence](docs/connectors/confluence.md) | Timestamp-based | API token / OAuth | 🔜 Coming soon |
-| [Elastic Web Crawler](docs/connectors/web-crawler.md) | Scheduled crawl | None (public) / HTTP auth | 🔜 Coming soon |
-| [Custom Web Crawler](docs/connectors/custom-crawler.md) | Configurable | Custom | 🔜 Coming soon |
+| [AWS S3](docs/connectors/s3.md) | Poll-based (incremental + full) | IAM Roles / Access Keys | ✅ Complete |
+| [SharePoint Online](docs/connectors/sharepoint.md) | Delta query (MS Graph API) | OAuth 2.0 / Azure AD app | ✅ Complete |
+| [Salesforce](docs/connectors/salesforce.md) | High-watermark timestamp | OAuth 2.0 | ✅ Complete |
+| [ServiceNow](docs/connectors/servicenow.md) | High-watermark timestamp | Basic / OAuth | ✅ Complete |
+| [Confluence](docs/connectors/confluence.md) | Timestamp-based | API token / OAuth | ✅ Complete |
+| [Elastic Web Crawler](docs/connectors/web-crawler.md) | Scheduled crawl | None (public) / HTTP auth | ✅ Complete |
+| [Custom Web Crawler](docs/connectors/custom-crawler.md) | Configurable | Custom | ✅ Complete |
 
 ## Chunking Strategies
 
 | Guide | Description | Status |
 |---|---|---|
-| [Chunking Strategies](docs/chunking/strategies.md) | Fixed-window, recursive, semantic, parent-child — with Jina v3 & third-party (LangChain, LlamaIndex) | 🔜 Coming soon |
+| [Chunking Strategies](docs/chunking/strategies.md) | Fixed-window, recursive, semantic, parent-child, sentence window — with Jina v3, LangChain, LlamaIndex, and Elasticsearch native `semantic_text` | ✅ Complete |
 
 ---
 

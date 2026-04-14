@@ -21,7 +21,7 @@
   - [Programmatic Provisioning](#programmatic-provisioning)
 - [Supported Content Types](#supported-content-types)
 - [Known Limitations](#known-limitations)
-- [Genesys AI-KB Deployment Notes](#genesys-ai-kb-deployment-notes)
+- [Enterprise AI-KB Deployment Notes](#enterprise-ai-kb-deployment-notes)
   - [Site & Library Scoping](#site--library-scoping)
   - [Per-Tenant Provisioning Script](#per-tenant-provisioning-script)
   - [Monitoring](#monitoring)
@@ -33,7 +33,7 @@
 
 The Elastic SharePoint Online Connector synchronises documents from SharePoint Online document libraries and site pages into Elasticsearch using the **Microsoft Graph API**. Unlike the S3 connector's ETag-based polling, SharePoint uses **delta queries** — a cursor mechanism built into the Graph API that tracks changes server-side, so the connector only receives items that actually changed since the last sync rather than listing everything and diffing locally.
 
-In the Genesys AI-KB architecture, the SharePoint connector indexes tenant knowledge base content stored in SharePoint document libraries — SOPs, FAQ pages, policy documents, and wiki content — making it searchable via BM25 + Jina v3 semantic hybrid search.
+In the Enterprise AI-KB architecture, the SharePoint connector indexes tenant knowledge base content stored in SharePoint document libraries — SOPs, FAQ pages, policy documents, and wiki content — making it searchable via BM25 + Jina v3 semantic hybrid search.
 
 ```
 SharePoint Online (document libraries, site pages)
@@ -185,10 +185,10 @@ If a drive's delta token is missing or expired, that drive falls back to full sy
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `tenant_id` | string | required | Azure AD tenant ID (GUID). Found in Azure Portal → Azure Active Directory → Overview. |
-| `tenant_name` | string | required | Your SharePoint tenant name (e.g. `genesys` for `genesys.sharepoint.com`). |
+| `tenant_name` | string | required | Your SharePoint tenant name (e.g. `enterprise` for `enterprise.sharepoint.com`). |
 | `client_id` | string | required | Azure AD application (client) ID of the registered app. |
 | `client_secret` | secret | required | Azure AD app client secret. Stored encrypted in `.elastic-connectors`. Rotate every 12 months. |
-| `site_collections` | list of strings | `[]` (all sites) | Allowlist of site collection URLs. Empty = crawl all sites the app can access. For multi-tenant Genesys: set to specific tenant site. |
+| `site_collections` | list of strings | `[]` (all sites) | Allowlist of site collection URLs. Empty = crawl all sites the app can access. For multi-tenant Enterprise: set to specific tenant site. |
 | `use_text_extraction_service` | boolean | `false` | Use Elastic's hosted text extraction service instead of local Tika. Set `false` for self-managed. |
 | `use_document_level_security` | boolean | `false` | Enforce SharePoint ACLs in search results. Requires additional Graph API permissions. |
 
@@ -196,12 +196,12 @@ If a drive's delta token is missing or expired, that drive falls back to full sy
 
 ### Azure AD App Registration
 
-Create one app registration per Genesys deployment region (not per tenant — one app covers all SharePoint tenants accessible in that Azure AD).
+Create one app registration per this deployment region (not per tenant — one app covers all SharePoint tenants accessible in that Azure AD).
 
 ```
 Azure Portal → Azure Active Directory → App registrations → New registration
 
-Name:           genesys-elastic-connector-{region}
+Name:           enterprise-elastic-connector-{region}
 Account type:   Accounts in this organizational directory only
 Redirect URI:   (leave blank — this is a daemon/service app, no user login)
 
@@ -225,7 +225,7 @@ All permissions are **Application** type (not Delegated) — the connector runs 
 
 > **Admin consent required** — these are high-privilege permissions. A Global Administrator or SharePoint Administrator must click "Grant admin consent" in the Azure Portal for the permissions to take effect.
 
-> **Principle of least privilege note:** `Files.Read.All` grants access to ALL files across ALL sites in the tenant. For Genesys multi-tenant deployments where each "tenant" is a separate SharePoint tenant (separate Azure AD), this is fine. If multiple Genesys customers share one Azure AD tenant, use `site_collections` allowlist to scope access.
+> **Principle of least privilege note:** `Files.Read.All` grants access to ALL files across ALL sites in the tenant. For this deployment multi-tenant deployments where each "tenant" is a separate SharePoint tenant (separate Azure AD), this is fine. If multiple customers share one Azure AD tenant, use `site_collections` allowlist to scope access.
 
 ---
 
@@ -307,11 +307,11 @@ Same Tika-based extraction as S3. SharePoint-specific notes:
 
 ---
 
-## Genesys AI-KB Deployment Notes
+## Enterprise AI-KB Deployment Notes
 
 ### Site & Library Scoping
 
-For Genesys multi-tenant deployments, each customer tenant has its own SharePoint Online subscription (separate Azure AD). This means:
+For this deployment multi-tenant deployments, each customer tenant has its own SharePoint Online subscription (separate Azure AD). This means:
 
 - One Azure AD app registration per customer tenant
 - One connector instance per customer tenant
@@ -319,13 +319,13 @@ For Genesys multi-tenant deployments, each customer tenant has its own SharePoin
 
 ```
 Customer Tenant A (Azure AD: tenant-a.onmicrosoft.com)
-  └── App registration: genesys-elastic-connector-us-east-1
+  └── App registration: enterprise-elastic-connector-us-east-1
   └── Site: https://tenanta.sharepoint.com/sites/KnowledgeBase
   └── Connector ID: tenant-a-sharepoint
   └── ES Index: search-kb-tenant-a
 
 Customer Tenant B (Azure AD: tenant-b.onmicrosoft.com)
-  └── App registration: genesys-elastic-connector-us-east-1
+  └── App registration: enterprise-elastic-connector-us-east-1
   └── Site: https://tenantb.sharepoint.com/sites/KnowledgeBase
   └── Connector ID: tenant-b-sharepoint
   └── ES Index: search-kb-tenant-b
@@ -518,4 +518,4 @@ Example: If your SharePoint library has a custom `Department` column, add a `set
 
 ---
 
-*Connector version: Elastic 8.x · Last updated: 2025 · Genesys AI-KB internal reference*
+*Connector version: Elastic 8.x · Last updated: 2025 · Enterprise AI-KB internal reference*

@@ -1,6 +1,6 @@
 # Jina Embeddings — Technical Reference
 
-> **Vendor:** Jina AI (acquired by Elastic) · **Integration:** Native Elasticsearch Inference Service (EIS) + self-managed ML node · **Current model in Genesys AI-KB:** jina-embeddings-v3 · **Latest model:** jina-embeddings-v5-text
+> **Vendor:** Jina AI (acquired by Elastic) · **Integration:** Native Elasticsearch Inference Service (EIS) + self-managed ML node · **Current model in Enterprise AI-KB:** jina-embeddings-v3 · **Latest model:** jina-embeddings-v5-text
 
 ---
 
@@ -8,7 +8,7 @@
 
 - [What is Jina AI](#what-is-jina-ai)
 - [The Model Family](#the-model-family)
-  - [jina-embeddings-v3 (current Genesys deployment)](#jina-embeddings-v3-current-genesys-deployment)
+  - [jina-embeddings-v3 (current this deployment)](#jina-embeddings-v3-current-enterprise-deployment)
   - [jina-embeddings-v4 (multimodal)](#jina-embeddings-v4-multimodal)
   - [jina-embeddings-v5-text (latest)](#jina-embeddings-v5-text-latest)
   - [Model Comparison Matrix](#model-comparison-matrix)
@@ -28,7 +28,7 @@
 - [Performance Benchmarks](#performance-benchmarks)
 - [Configuration Reference](#configuration-reference)
 - [Known Limitations](#known-limitations)
-- [Genesys AI-KB Deployment Notes](#genesys-ai-kb-deployment-notes)
+- [Enterprise AI-KB Deployment Notes](#enterprise-ai-kb-deployment-notes)
   - [Current Architecture](#current-architecture)
   - [Migration Path to v5](#migration-path-to-v5)
 - [Technical Q&A](#technical-qa)
@@ -46,11 +46,11 @@ Practically, this means:
 - Jina models are the Elastic-recommended path for multilingual semantic search, replacing ELSER for most use cases
 - Model updates come through Elastic's release cycle
 
-For Genesys, this is significant: the embedding model powering your hybrid search is no longer a third-party dependency — it's part of the Elastic platform you're already paying for.
+For this deployment, this is significant: the embedding model powering your hybrid search is no longer a third-party dependency — it's part of the Elastic platform you're already paying for.
 
 ### Licensing for Active Elastic Customers
 
-> **Confirmed April 2026 by Jina AI:** If Genesys is an active Elastic customer, commercial use of Jina models (v3, v5) is **included** — no separate license purchase or API key required. They can start using the models directly through Elastic's inference infrastructure.
+> **Confirmed April 2026 by Jina AI:** If Enterprise is an active Elastic customer, commercial use of Jina models (v3, v5) is **included** — no separate license purchase or API key required. They can start using the models directly through Elastic's inference infrastructure.
 
 This applies to:
 - `jina-embeddings-v3` — included ✅
@@ -62,9 +62,9 @@ This applies to:
 
 ## The Model Family
 
-### jina-embeddings-v3 (current Genesys deployment)
+### jina-embeddings-v3 (current this deployment)
 
-Released September 2024. The model currently deployed in the Genesys AI-KB architecture.
+Released September 2024. The model currently deployed in the Enterprise AI-KB architecture.
 
 **Architecture:** XLM-RoBERTa backbone with 24 transformer layers + 5 task-specific LoRA adapters. 570 million parameters total.
 
@@ -80,7 +80,7 @@ Released September 2024. The model currently deployed in the Genesys AI-KB archi
 | Self-managed | ONNX INT8 quantized — runs on ML node |
 | EIS | ✅ Available |
 
-**Why v3 was chosen for Genesys:** At the time of architecture design, v3 was Elastic's default for `semantic_text` on EIS, with the best balance of multilingual quality, 8K context window (covers most KB articles without chunking), and operational simplicity via ONNX INT8 deployment on self-managed ML nodes.
+**Why v3 was chosen for this deployment:** At the time of architecture design, v3 was Elastic's default for `semantic_text` on EIS, with the best balance of multilingual quality, 8K context window (covers most KB articles without chunking), and operational simplicity via ONNX INT8 deployment on self-managed ML nodes.
 
 ---
 
@@ -103,9 +103,9 @@ Released June 2025. A significant architectural shift — v4 is a multimodal mod
 | Self-managed | Available via Hugging Face / GGUF quantization |
 | EIS | ✅ Available (free, due to non-commercial license) |
 
-> **Important:** v4 is free via API due to its non-commercial Qwen Research License. Unlike v3 and v5 (which are included for active Elastic customers), v4's non-commercial restriction applies at the model level regardless of Elastic customer status. For Genesys's production deployment, use v3 (current) or v5 (upgrade path). v4 is appropriate for research, evaluation, and prototyping only.
+> **Important:** v4 is free via API due to its non-commercial Qwen Research License. Unlike v3 and v5 (which are included for active Elastic customers), v4's non-commercial restriction applies at the model level regardless of Elastic customer status. For this deployment's production deployment, use v3 (current) or v5 (upgrade path). v4 is appropriate for research, evaluation, and prototyping only.
 
-**When v4 makes sense:** If Genesys customers have knowledge bases containing charts, diagrams, screenshots, or visually rich PDFs (e.g. product spec sheets with embedded tables), v4's multimodal capability could significantly improve retrieval for those document types.
+**When v4 makes sense:** If customers have knowledge bases containing charts, diagrams, screenshots, or visually rich PDFs (e.g. product spec sheets with embedded tables), v4's multimodal capability could significantly improve retrieval for those document types.
 
 ---
 
@@ -129,11 +129,11 @@ Released February 2026. Two sizes: `v5-text-small` (677M parameters) and `v5-tex
 
 **Key improvements over v3:**
 - 32K token context window (v5-small) vs 8,192 — removes chunking requirement for almost all KB documents
-- 119+ languages vs 89 — better coverage for Genesys's LATAM, MENA, APAC regions
+- 119+ languages vs 89 — better coverage for this deployment's LATAM, MENA, APAC regions
 - Higher MTEB scores (71.7 vs 65.52) — measurably better retrieval quality
 - `semantic_text` on EIS now defaults to v5 — if you create a new deployment today, v5 is what you get automatically
 
-> **Note for Genesys:** v5-text-small is the recommended upgrade path for quality. v5-text-nano is specifically worth evaluating for the 21-region self-managed deployment — at 239M parameters it has a significantly smaller hardware footprint than v3 (570M) or v5-small (677M), which could reduce ML node sizing requirements per region. Jina AI confirmed nano as "the strongest candidate if they need to minimize hardware footprint across 20 regions." See [Migration Path to v5](#migration-path-to-v5).
+> **Note for this deployment:** v5-text-small is the recommended upgrade path for quality. v5-text-nano is specifically worth evaluating for the multi-region self-managed deployment — at 239M parameters it has a significantly smaller hardware footprint than v3 (570M) or v5-small (677M), which could reduce ML node sizing requirements per region. Jina AI confirmed nano as "the strongest candidate if they need to minimize hardware footprint across 20 regions." See [Migration Path to v5](#migration-path-to-v5).
 
 ---
 
@@ -148,7 +148,7 @@ Released February 2026. Two sizes: `v5-text-small` (677M parameters) and `v5-tex
 | **Commercial use** | ✅ (Elastic customer) | ❌ (research only, model-level restriction) | ✅ (Elastic customer) | ✅ (Elastic customer) |
 | **EIS available** | ✅ | ✅ (free) | ✅ (default) | ✅ |
 | **Self-managed ONNX** | ✅ | Via GGUF | ✅ | ✅ |
-| **Genesys AI-KB fit** | Current (deployed) | Evaluation / visually rich docs | Recommended upgrade (quality) | Recommended upgrade (21-region hardware footprint) |
+| **Enterprise AI-KB fit** | Current (deployed) | Evaluation / visually rich docs | Recommended upgrade (quality) | Recommended upgrade (multi-region hardware footprint) |
 
 ---
 
@@ -171,7 +171,7 @@ Elasticsearch supports two types of vector search. Understanding the difference 
 - Excellent for multilingual and cross-lingual retrieval
 
 **Why you need both (hybrid search):**
-A keyword search for "reset password" finds documents containing those exact words. A semantic search finds documents about "credential recovery" or "account access issues" even if they don't use the word "password." Combining both via RRF gives you coverage of exact terms AND semantic intent simultaneously — which is why the Genesys deployment uses BM25 + Jina kNN + RRF fusion.
+A keyword search for "reset password" finds documents containing those exact words. A semantic search finds documents about "credential recovery" or "account access issues" even if they don't use the word "password." Combining both via RRF gives you coverage of exact terms AND semantic intent simultaneously — which is why the this deployment uses BM25 + Jina kNN + RRF fusion.
 
 ---
 
@@ -189,7 +189,7 @@ Base model (XLM-RoBERTa, 570M parameters)
     └── text-matching adapter      ← semantic similarity, STS
 ```
 
-**Why this matters for Genesys:**
+**Why this matters for this deployment:**
 
 You must use the **correct adapter for each operation**:
 
@@ -234,7 +234,7 @@ embedding_256 = model.encode(text, dimensions=256)
 | 128 | 60.4 | 0.125× | Experimental only |
 | 64 | 56.2 | 0.063× | Not recommended for production |
 
-For Genesys at 5,000 documents per tenant × 50 tenants × 21 regions = 5.25M documents: using 512d instead of 1024d saves ~10 GB of vector storage globally with a <1% quality drop. Worth evaluating for cost optimisation.
+For this deployment at 5,000 documents per tenant × 50 tenants × multi-region = 5.25M documents: using 512d instead of 1024d saves ~10 GB of vector storage globally with a <1% quality drop. Worth evaluating for cost optimisation.
 
 ---
 
@@ -242,7 +242,7 @@ For Genesys at 5,000 documents per tenant × 50 tenants × 21 regions = 5.25M do
 
 > **Availability:** Late chunking is supported by **jina-embeddings-v3 only**. It is not available in v4 or v5. This is one of the key reasons v3 remains the production-recommended model for knowledge base retrieval use cases where chunking context matters. Confirmed by Jina AI directly (April 2026).
 
-Late chunking is one of v3's most important features for knowledge base retrieval, and it directly addresses the chunking strategy question raised during the Genesys call.
+Late chunking is one of v3's most important features for knowledge base retrieval, and it directly addresses the chunking strategy question raised during the Enterprise call.
 
 **Traditional (naive) chunking:**
 ```
@@ -295,7 +295,7 @@ Document:  "To reset your password..."   →  retrieval.passage adapter →  doc
 
 These two adapters are trained jointly so their output vectors are comparable (dot product works correctly between them) but each is optimised for its role. The query adapter produces vectors that "ask a question" — they're tuned to match against answer passages rather than similar-sounding questions.
 
-**The practical implication for Genesys:** When building the retrieval query, always specify the task as `retrieval.query`. When indexing documents, always specify `retrieval.passage`. Getting this wrong is a common silent failure — the search returns results but quality is measurably worse.
+**The practical implication for this deployment:** When building the retrieval query, always specify the task as `retrieval.query`. When indexing documents, always specify `retrieval.passage`. Getting this wrong is a common silent failure — the search returns results but quality is measurably worse.
 
 ---
 
@@ -305,13 +305,13 @@ These two adapters are trained jointly so their output vectors are comparable (d
 
 There are three ways to run Jina models in an Elasticsearch cluster. The right choice depends on your deployment constraints.
 
-| Option | How it works | Best for | Genesys fit |
+| Option | How it works | Best for | Enterprise fit |
 |---|---|---|---|
 | **Elastic Inference Service (EIS)** | Models run on Elastic's GPU infrastructure, accessed via API | Elastic Cloud, managed deployments | ⚠️ Requires Cloud Connect for self-managed |
-| **Self-managed ML node** | ONNX model downloaded and served by Elasticsearch ML node on your own hardware | Self-managed clusters (no cloud dependency) | ✅ **Current Genesys deployment** |
+| **Self-managed ML node** | ONNX model downloaded and served by Elasticsearch ML node on your own hardware | Self-managed clusters (no cloud dependency) | ✅ **Current this deployment** |
 | **External Jina API** | Elasticsearch calls out to api.jina.ai per inference request | Prototyping, small scale | ❌ Not suitable for production (external dependency, latency, per-token cost) |
 
-For Genesys's self-managed AWS EC2 deployment (no Kubernetes, no Docker), the **self-managed ML node with ONNX INT8 model** is the correct architecture. The ONNX INT8 quantized model runs on `c6i.4xlarge` ML nodes (16 vCPU, 32 GB RAM) without requiring GPU hardware.
+For this deployment's self-managed AWS EC2 deployment (no Kubernetes, no Docker), the **self-managed ML node with ONNX INT8 model** is the correct architecture. The ONNX INT8 quantized model runs on `c6i.4xlarge` ML nodes (16 vCPU, 32 GB RAM) without requiring GPU hardware.
 
 ---
 
@@ -319,7 +319,7 @@ For Genesys's self-managed AWS EC2 deployment (no Kubernetes, no Docker), the **
 
 An inference endpoint is the Elasticsearch abstraction that connects a model to your indexing and search pipeline. You create one per model/task combination.
 
-**For self-managed deployment (Genesys architecture):**
+**For self-managed deployment (Enterprise architecture):**
 
 ```bash
 # Step 1: Download the ONNX INT8 model to ML node
@@ -337,7 +337,7 @@ POST _ml/trained_models/jinaai__jina-embeddings-v3/deployment/_start
 }
 
 # Step 3: Create inference endpoint pointing to the deployed model
-PUT _inference/text_embedding/genesys-jina-v3
+PUT _inference/text_embedding/enterprise-jina-v3
 {
   "service": "elasticsearch",
   "service_settings": {
@@ -353,10 +353,10 @@ PUT _inference/text_embedding/genesys-jina-v3
 }
 ```
 
-**For EIS (Cloud / future Genesys migration):**
+**For EIS (Cloud / future Enterprise migration):**
 
 ```bash
-PUT _inference/text_embedding/genesys-jina-v3
+PUT _inference/text_embedding/enterprise-jina-v3
 {
   "service": "elastic",
   "service_settings": {
@@ -384,7 +384,7 @@ PUT /search-kb-tenant-123
     "properties": {
       "body": {
         "type": "semantic_text",
-        "inference_id": "genesys-jina-v3"
+        "inference_id": "enterprise-jina-v3"
       },
       "title": {
         "type": "text"
@@ -401,7 +401,7 @@ PUT /search-kb-tenant-123
   "body": "To reset your password, click on the Forgot Password link...",
   "body_semantic": {
     "inference": {
-      "inference_id": "genesys-jina-v3",
+      "inference_id": "enterprise-jina-v3",
       "model_settings": { "task_type": "text_embedding", "dimensions": 1024 }
     },
     "chunks": [
@@ -414,7 +414,7 @@ PUT /search-kb-tenant-123
 }
 ```
 
-> **Note for Genesys:** `semantic_text` with the self-managed ONNX model handles chunking automatically, which is exactly why Shankar told Amanda during the call that "you don't need to worry about the chunking strategy." The chunking is configured once in the inference endpoint and applied to every document automatically at index time.
+> **Note for this deployment:** `semantic_text` with the self-managed ONNX model handles chunking automatically, which is exactly why Shankar told Amanda during the call that "you don't need to worry about the chunking strategy." The chunking is configured once in the inference endpoint and applied to every document automatically at index time.
 
 ---
 
@@ -431,7 +431,7 @@ When a connector syncs a document and posts it to Elasticsearch, here is the exa
 2. Ingest pipeline executes processors in order:
    a. attachment processor (if binary — already done for connector docs)
    b. set processor (add source, tenant_id metadata)
-   c. inference processor → calls genesys-jina-v3 inference endpoint
+   c. inference processor → calls enterprise-jina-v3 inference endpoint
       → body text sent to ML node
       → ML node runs ONNX INT8 model
       → returns 1,024-dim float32 vector
@@ -453,7 +453,7 @@ PUT _ingest/pipeline/kb-ingest-tenant-123
   "processors": [
     {
       "inference": {
-        "model_id": "genesys-jina-v3",
+        "model_id": "enterprise-jina-v3",
         "input_output": [
           {
             "input_field":  "body",
@@ -487,7 +487,7 @@ GET /search-kb-tenant-123/_search
     "field": "body_embedding",
     "query_vector_builder": {
       "text_embedding": {
-        "model_id":    "genesys-jina-v3",
+        "model_id":    "enterprise-jina-v3",
         "model_text":  "how do I reset my password"
       }
     },
@@ -514,7 +514,7 @@ def embed_query(query_text: str, inference_endpoint: str) -> list:
     )
     return resp.json()["text_embedding"]["predicted_value"]
 
-query_vector = embed_query("how do I reset my password", "genesys-jina-v3")
+query_vector = embed_query("how do I reset my password", "enterprise-jina-v3")
 
 # Then pass pre-computed vector to Elasticsearch — no ML node call in query path
 es.search(index=f"search-kb-tenant-123", knn={
@@ -525,7 +525,7 @@ es.search(index=f"search-kb-tenant-123", knn={
 })
 ```
 
-**Recommendation for Genesys:** Option B. Pre-computing the query embedding at the application layer keeps the ML node load predictable and removes it from the critical query latency path. At 140 QPS, each `query_vector_builder` call adds ~50ms to the query from the ML node — pre-computing moves this to the application tier where it can be parallelised or cached.
+**Recommendation for this deployment:** Option B. Pre-computing the query embedding at the application layer keeps the ML node load predictable and removes it from the critical query latency path. At 140 QPS, each `query_vector_builder` call adds ~50ms to the query from the ML node — pre-computing moves this to the application tier where it can be parallelised or cached.
 
 ---
 
@@ -608,7 +608,7 @@ MTEB (Massive Text Embedding Benchmark) is the standard benchmark for embedding 
 | kNN search (10K docs) | ~5ms | ~12ms | After embedding computed |
 | kNN search (500K docs) | ~15ms | ~35ms | HNSW index, 1024d |
 
-### Throughput (2× c6i.4xlarge ML nodes, Genesys spec)
+### Throughput (2× c6i.4xlarge ML nodes, Enterprise spec)
 
 | Load | Throughput | Notes |
 |---|---|---|
@@ -632,10 +632,10 @@ MTEB (Massive Text Embedding Benchmark) is the standard benchmark for embedding 
 | `chunking_settings.max_chunk_size` | integer | 250 | Max tokens per chunk. Increase to 512 for better semantic coverage on longer passages. |
 | `chunking_settings.sentence_overlap` | integer | 1 | Number of sentences to overlap between chunks. |
 
-### Recommended Configuration for Genesys
+### Recommended Configuration for this deployment
 
 ```json
-PUT _inference/text_embedding/genesys-jina-v3
+PUT _inference/text_embedding/enterprise-jina-v3
 {
   "service": "elasticsearch",
   "service_settings": {
@@ -652,7 +652,7 @@ PUT _inference/text_embedding/genesys-jina-v3
 }
 ```
 
-> Increasing `max_chunk_size` from the default 250 to 512 tokens improves semantic quality for longer KB articles at the cost of ~2× more storage per chunked document. For Genesys's typical 500–2,000 word KB articles, 512 tokens per chunk means most articles produce 1–3 chunks — a good balance.
+> Increasing `max_chunk_size` from the default 250 to 512 tokens improves semantic quality for longer KB articles at the cost of ~2× more storage per chunked document. For this deployment's typical 500–2,000 word KB articles, 512 tokens per chunk means most articles produce 1–3 chunks — a good balance.
 
 ### Index Mapping (dense vector approach)
 
@@ -694,7 +694,7 @@ PUT /search-kb-tenant-123
 
 kNN uses HNSW (Hierarchical Navigable Small World) as the approximate nearest neighbor algorithm.
 
-| Parameter | Default | Description | Genesys recommendation |
+| Parameter | Default | Description | Enterprise recommendation |
 |---|---|---|---|
 | `m` | 16 | Number of bidirectional links per node. Higher = better recall, more memory. | 16 (default is fine) |
 | `ef_construction` | 100 | Candidates evaluated during index build. Higher = better index quality, slower build. | 100 (default is fine) |
@@ -717,7 +717,7 @@ kNN uses HNSW (Hierarchical Navigable Small World) as the approximate nearest ne
 
 ---
 
-## Genesys AI-KB Deployment Notes
+## Enterprise AI-KB Deployment Notes
 
 ### Current Architecture
 
@@ -725,7 +725,7 @@ kNN uses HNSW (Hierarchical Navigable Small World) as the approximate nearest ne
 Connector sync → Ingest pipeline → inference processor
                                         │
                                         ▼
-                              genesys-jina-v3 endpoint
+                              enterprise-jina-v3 endpoint
                                         │
                                         ▼
                               ML node (c6i.4xlarge × 2)
@@ -739,7 +739,7 @@ Connector sync → Ingest pipeline → inference processor
 
 At query time:
 ```
-User query → application layer → embed via genesys-jina-v3 endpoint
+User query → application layer → embed via enterprise-jina-v3 endpoint
                                           │
                                           ▼
                                   query_vector (1,024-dim)
@@ -754,11 +754,11 @@ User query → application layer → embed via genesys-jina-v3 endpoint
 
 ### Migration Path to v5
 
-When Genesys is ready to upgrade from v3 to v5, follow this process to avoid breaking production search:
+When Enterprise is ready to upgrade from v3 to v5, follow this process to avoid breaking production search:
 
 ```
 1. Deploy v5 inference endpoint (alongside existing v3):
-   PUT _inference/text_embedding/genesys-jina-v5
+   PUT _inference/text_embedding/enterprise-jina-v5
    { "service_settings": { "model_id": "jina-embeddings-v5-text-small" } }
 
 2. Create shadow index with v5 mapping:
@@ -791,13 +791,13 @@ When Genesys is ready to upgrade from v3 to v5, follow this process to avoid bre
 ## Technical Q&A
 
 <details>
-<summary><strong>Why does Elasticsearch use HNSW for kNN instead of exact nearest neighbor — and what is the actual recall at Genesys's scale?</strong></summary>
+<summary><strong>Why does Elasticsearch use HNSW for kNN instead of exact nearest neighbor — and what is the actual recall in this deployment's scale?</strong></summary>
 
-Exact nearest neighbor (brute-force) computes the dot product between the query vector and every single indexed vector. For Genesys with 5,000 docs × 50 tenants = 250,000 vectors per cluster, brute-force at 140 QPS would require 250,000 × 1,024 multiplications × 140 times/second = 35.8 billion multiply-add operations per second — computationally expensive.
+Exact nearest neighbor (brute-force) computes the dot product between the query vector and every single indexed vector. For this deployment with 5,000 docs × 50 tenants = 250,000 vectors per cluster, brute-force at 140 QPS would require 250,000 × 1,024 multiplications × 140 times/second = 35.8 billion multiply-add operations per second — computationally expensive.
 
 HNSW (Hierarchical Navigable Small World) is an approximate nearest neighbor algorithm that builds a multi-layer graph where each node connects to its nearest neighbors. Search navigates this graph rather than scanning all vectors, giving sub-millisecond search at the cost of occasionally missing the true top-k results.
 
-At Genesys's scale (250K vectors per tenant), HNSW with default parameters (`m=16`, `ef_construction=100`) achieves approximately **97–99% recall@10** — meaning for a top-10 query, HNSW returns 9–10 of the same results that brute-force would return. The 1–3% it misses are typically marginal results (ranked 8–10) that don't affect the quality of the top-3 results shown to agents.
+At the customer's scale (250K vectors per tenant), HNSW with default parameters (`m=16`, `ef_construction=100`) achieves approximately **97–99% recall@10** — meaning for a top-10 query, HNSW returns 9–10 of the same results that brute-force would return. The 1–3% it misses are typically marginal results (ranked 8–10) that don't affect the quality of the top-3 results shown to agents.
 
 As tenant scale grows (e.g. 300+ tenants, 1.5M+ vectors), recall can degrade. Mitigate by increasing `num_candidates` at query time from 50 to 100 — this instructs HNSW to evaluate more candidates, improving recall at a small latency cost.
 
@@ -810,7 +810,7 @@ The Jina v3 model's neural network weights are stored as 32-bit floating-point n
 
 The accuracy impact: during quantization, each float32 weight is mapped to the nearest integer on a scale of -128 to 127. The mapping introduces rounding errors — small but nonzero. For embedding models, this translates to approximately 0.5–1.5% lower MTEB scores compared to full float32. In practice, for knowledge base retrieval tasks, this difference is not perceptible in the quality of search results.
 
-The ONNX format (Open Neural Network Exchange) is a standardised model representation that allows the model to run on Elasticsearch's ML node using the ONNX Runtime library — without requiring Python, PyTorch, or GPU hardware. This is why the Genesys deployment runs Jina v3 on CPU-only `c6i.4xlarge` instances rather than GPU instances, keeping infrastructure cost significantly lower.
+The ONNX format (Open Neural Network Exchange) is a standardised model representation that allows the model to run on Elasticsearch's ML node using the ONNX Runtime library — without requiring Python, PyTorch, or GPU hardware. This is why the this deployment runs Jina v3 on CPU-only `c6i.4xlarge` instances rather than GPU instances, keeping infrastructure cost significantly lower.
 
 </details>
 
@@ -825,7 +825,7 @@ However, there are important caveats:
 
 **BM25 (the keyword component of hybrid search) is language-specific.** A BM25 query in English does NOT match French documents because BM25 is based on exact term overlap. This means the hybrid search result for a cross-lingual query is dominated by the kNN (Jina) component for cross-language matches, while BM25 only contributes for same-language matches.
 
-**Practical recommendation for Genesys:** If a tenant has a primarily Spanish knowledge base and agents query in Spanish, the hybrid search performs excellently. If agents occasionally query in English against a Spanish KB, the kNN component still retrieves relevant results but BM25 precision for those results is near-zero. The RRF fusion handles this gracefully — kNN results still surface correctly, just without the BM25 rank boost.
+**Practical recommendation for this deployment:** If a tenant has a primarily Spanish knowledge base and agents query in Spanish, the hybrid search performs excellently. If agents occasionally query in English against a Spanish KB, the kNN component still retrieves relevant results but BM25 precision for those results is near-zero. The RRF fusion handles this gracefully — kNN results still surface correctly, just without the BM25 rank boost.
 
 </details>
 
@@ -842,7 +842,7 @@ The internal structure after indexing a document with `semantic_text`:
   "body": "Full article text here...",
   "_inference_fields": {
     "body": {
-      "inference_id": "genesys-jina-v3",
+      "inference_id": "enterprise-jina-v3",
       "chunks": [
         {
           "text":       "First chunk of the article...",
@@ -865,7 +865,7 @@ The practical implication: with `semantic_text`, you do NOT need to implement pa
 </details>
 
 <details>
-<summary><strong>Jina v3 was released in 2024 and v5 is already out in 2026 — should Genesys be planning to upgrade, and what triggers the decision?</strong></summary>
+<summary><strong>Jina v3 was released in 2024 and v5 is already out in 2026 — should Enterprise be planning to upgrade, and what triggers the decision?</strong></summary>
 
 The honest answer: yes, v5 is meaningfully better and the upgrade path is well-defined. The question is when, not whether.
 
@@ -877,7 +877,7 @@ The honest answer: yes, v5 is meaningfully better and the upgrade path is well-d
 
 **Arguments for staying on v3 for now:**
 - v3 is working, deployed, and producing acceptable results
-- A model upgrade requires full re-indexing of all ~5.25M documents across 21 regions — significant operational work without Kubernetes to orchestrate it
+- A model upgrade requires full re-indexing of all ~5.25M documents across multi-region — significant operational work without Kubernetes to orchestrate it
 - The quality improvement may not be perceptible enough to justify the migration effort until you have baseline quality metrics from the production deployment
 
 **Practical recommendation:** Run v3 for the initial production deployment. Measure retrieval quality with real agent feedback (thumbs up/down on knowledge suggestions). Once you have a quality baseline, run a parallel evaluation of v5 on a subset of tenants. If the improvement is measurable in agent satisfaction metrics, schedule the migration during a low-traffic window using the re-indexing procedure described in [Migration Path to v5](#migration-path-to-v5).
@@ -901,4 +901,4 @@ In numerical terms: a query vector produced by `retrieval.query` will have a hig
 
 ---
 
-*Last updated: April 2026 · Based on jina-embeddings-v3 (current) and v5 (latest) · Elastic 8.x + Jina AI (Elastic acquisition) · Genesys AI-KB internal reference*
+*Last updated: April 2026 · Based on jina-embeddings-v3 (current) and v5 (latest) · Elastic 8.x + Jina AI (Elastic acquisition) · Enterprise AI-KB internal reference*

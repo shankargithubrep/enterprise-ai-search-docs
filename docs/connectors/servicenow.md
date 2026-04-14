@@ -20,7 +20,7 @@
   - [Programmatic Provisioning](#programmatic-provisioning)
 - [Supported Tables & Field Mapping](#supported-tables--field-mapping)
 - [Known Limitations](#known-limitations)
-- [Genesys AI-KB Deployment Notes](#genesys-ai-kb-deployment-notes)
+- [Enterprise AI-KB Deployment Notes](#enterprise-ai-kb-deployment-notes)
 - [Technical Q&A](#technical-qa)
 
 ---
@@ -29,7 +29,7 @@
 
 The Elastic ServiceNow Connector synchronises records from ServiceNow tables into Elasticsearch using the **ServiceNow Table API**. Like the Salesforce connector, it uses a **high-watermark timestamp** (`sys_updated_on > last_sync_timestamp`) for incremental change detection — a SOQL-style filter native to the Table API's `sysparm_query` parameter.
 
-In the Genesys AI-KB architecture, the ServiceNow connector is the primary source for **IT knowledge base articles**, **incident resolutions**, and **problem records** — content that contact centre agents need when handling technical support queries.
+In the Enterprise AI-KB architecture, the ServiceNow connector is the primary source for **IT knowledge base articles**, **incident resolutions**, and **problem records** — content that contact centre agents need when handling technical support queries.
 
 ```
 ServiceNow Instance (Knowledge Base, Incidents, Problems, Changes)
@@ -287,9 +287,9 @@ def provision_servicenow_connector(
 
 ---
 
-## Genesys AI-KB Deployment Notes
+## Enterprise AI-KB Deployment Notes
 
-For Genesys, each enterprise customer has their own ServiceNow instance. Standard deployment:
+For this deployment, each enterprise customer has their own ServiceNow instance. Standard deployment:
 
 - **One connector instance per ServiceNow instance** (per customer)
 - **Sync `kb_knowledge` + `incident` + `problem`** — configure per customer based on what knowledge content they maintain in ServiceNow
@@ -377,10 +377,10 @@ Incremental sync of the same instance (50 articles changed since last hour):
 - ~10 attachment downloads (if articles have attachments)
 - **Total: ~12 API calls**
 
-ServiceNow's default rate limit is typically 10,000 requests per hour per user — both sync patterns are well within this for the Genesys 5,000-articles-per-tenant baseline.
+ServiceNow's default rate limit is typically 10,000 requests per hour per user — both sync patterns are well within this for the Enterprise 5,000-articles-per-tenant baseline.
 
 </details>
 
 ---
 
-*Connector version: Elastic 8.x · Last updated: 2025 · Genesys AI-KB internal reference*
+*Connector version: Elastic 8.x · Last updated: 2025 · Enterprise AI-KB internal reference*

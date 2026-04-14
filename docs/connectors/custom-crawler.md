@@ -17,7 +17,7 @@
 - [Authentication Handling](#authentication-handling)
 - [Change Detection Strategies](#change-detection-strategies)
 - [Known Limitations & Tradeoffs](#known-limitations--tradeoffs)
-- [Genesys AI-KB Deployment Notes](#genesys-ai-kb-deployment-notes)
+- [Enterprise AI-KB Deployment Notes](#enterprise-ai-kb-deployment-notes)
 - [Technical Q&A](#technical-qa)
 
 ---
@@ -96,7 +96,7 @@ class StaticSiteCrawler:
         self.queue         = [entry_url]
         self.session       = requests.Session()
         self.session.headers.update({
-            "User-Agent": "Genesys-Knowledge-Crawler/1.0",
+            "User-Agent": "Enterprise-Knowledge-Crawler/1.0",
         })
 
     def is_allowed(self, url: str) -> bool:
@@ -266,7 +266,7 @@ class SPACrawler:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             context = await browser.new_context(
-                user_agent="Genesys-Knowledge-Crawler/1.0",
+                user_agent="Enterprise-Knowledge-Crawler/1.0",
                 ignore_https_errors=False,
             )
             page = await context.new_page()
@@ -317,7 +317,7 @@ class KnowledgeCrawlerSpider(scrapy.Spider):
         "AUTOTHROTTLE_ENABLED": True,
         "AUTOTHROTTLE_TARGET_CONCURRENCY": 2.0,
         "ROBOTSTXT_OBEY": True,
-        "USER_AGENT": "Genesys-Knowledge-Crawler/1.0",
+        "USER_AGENT": "Enterprise-Knowledge-Crawler/1.0",
     }
 
     def __init__(self, entry_url: str, tenant_id: str, es_host: str, **kwargs):
@@ -518,9 +518,9 @@ def fetch_if_modified(session, url, last_modified=None):
 
 ---
 
-## Genesys AI-KB Deployment Notes
+## Enterprise AI-KB Deployment Notes
 
-Custom crawlers in the Genesys deployment are typically used for:
+Custom crawlers in the this deployment are typically used for:
 
 1. **Customer-specific web portals built as SPAs** (React/Angular)
 2. **Internal tools with form-based login** (legacy intranets, custom apps)
@@ -547,7 +547,7 @@ User=elastic-connector
 ExecStart=/opt/connectors/venv/bin/python /opt/connectors/custom_crawler.py \
   --tenant-id tenant-123 \
   --entry-url https://portal.customer123.com \
-  --es-host es-us-east-1.genesys-internal.com \
+  --es-host es-us-east-1.enterprise-internal.com \
   --max-pages 5000
 StandardOutput=journal
 StandardError=journal
@@ -644,4 +644,4 @@ Playwright also has a high cold-start overhead (~2–3 seconds to launch Chromiu
 
 ---
 
-*Implementation guide: Elastic 8.x compatible · Last updated: 2025 · Genesys AI-KB internal reference*
+*Implementation guide: Elastic 8.x compatible · Last updated: 2025 · Enterprise AI-KB internal reference*

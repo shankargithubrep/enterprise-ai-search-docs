@@ -644,4 +644,4 @@ Playwright also has a high cold-start overhead (~2-3 seconds to launch Chromium)
 
 ---
 
-*Implementation guide: Elastic 8.x compatible · Last updated: 2025 · Enterprise AI-KB internal reference*
+*Implementation guide: Elastic 9.x compatible · Last updated: 2025 · Enterprise AI-KB internal reference*

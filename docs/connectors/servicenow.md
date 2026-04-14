@@ -383,4 +383,4 @@ ServiceNow's default rate limit is typically 10,000 requests per hour per user -
 
 ---
 
-*Connector version: Elastic 8.x · Last updated: 2025 · Enterprise AI-KB internal reference*
+*Connector version: Elastic 9.x · Last updated: 2025 · Enterprise AI-KB internal reference*

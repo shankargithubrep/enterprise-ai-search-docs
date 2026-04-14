@@ -379,7 +379,7 @@ Atlassian Cloud's documented rate limit for REST API is approximately 10 request
 <details>
 <summary><strong>Confluence Cloud recently deprecated API v1 in favour of v2 - which version does the connector use and what breaks if the deprecation completes?</strong></summary>
 
-The Elastic Confluence connector uses API v1 (`/wiki/rest/api/`) as its primary interface, with some v2 (`/wiki/api/v2/`) calls for specific operations in newer connector versions. As of Elastic 8.x, v1 is still the primary path.
+The Elastic Confluence connector uses API v1 (`/wiki/rest/api/`) as its primary interface, with some v2 (`/wiki/api/v2/`) calls for specific operations in newer connector versions. As of Elastic 9.x, v1 is still the primary path.
 
 Atlassian has announced a phased v1 deprecation but as of 2025 v1 remains fully functional for Confluence Cloud. When Atlassian eventually removes v1 endpoints, the connector will require an update to use v2 endpoints for the affected operations.
 
@@ -391,4 +391,4 @@ Mitigation: Track Elastic connector release notes for Confluence v2 migration. B
 
 ---
 
-*Connector version: Elastic 8.x · Last updated: 2025 · Enterprise AI-KB internal reference*
+*Connector version: Elastic 9.x · Last updated: 2025 · Enterprise AI-KB internal reference*

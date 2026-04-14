@@ -38,9 +38,9 @@
 | Platform | Contact Center as a Service platform |
 | Use case | Multi-tenant AI knowledge retrieval - agent assist, self-service bots |
 | Deployment | Self-managed AWS EC2 - no Docker / Kubernetes |
-| Regions | 21 worldwide, one Elasticsearch cluster per region |
-| Standard tenants | 50 per region (1,000s globally) |
-| ES version | 8.x (latest stable) |
+| Regions | Multi-region worldwide, one Elasticsearch cluster per region |
+| Standard tenants | ~50 per region (1,000s globally) |
+| ES version | 9.x (latest stable) |
 | Embedding model | Jina Embeddings v3 (ONNX INT8 quantized) |
 | Connector sources | Salesforce · ServiceNow · SharePoint Online · Confluence · S3 |
 | Connector agent VM | `m6i.xlarge` - 1 VM per 10-15 tenants, systemd-managed |

@@ -441,4 +441,4 @@ GET search-kb-tenant-123/_search
 
 ---
 
-*Connector version: Elastic 8.x · Last updated: 2025 · Enterprise AI-KB internal reference*
+*Connector version: Elastic 9.x · Last updated: 2025 · Enterprise AI-KB internal reference*

@@ -536,7 +536,7 @@ index = VectorStoreIndex.from_documents(
 
 ## Elasticsearch-Native Chunking (`semantic_text`)
 
-Elasticsearch 8.11+ introduced `semantic_text` field type which handles chunking natively at index time - no external chunking pipeline needed.
+Elasticsearch's `semantic_text` field type (GA since 8.11, included in 9.x) handles chunking natively at index time - no external chunking pipeline needed.
 
 ```json
 PUT /search-kb-tenant-123
@@ -827,4 +827,4 @@ import jieba  # Chinese word segmentation
 
 ---
 
-*Last updated: 2025 · Enterprise AI-KB internal reference · Elastic 8.x + Jina Embeddings v3*
+*Last updated: 2026 · Enterprise AI-KB internal reference · Elastic 9.x + Jina Embeddings v3*

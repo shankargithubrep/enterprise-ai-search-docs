@@ -901,4 +901,4 @@ In numerical terms: a query vector produced by `retrieval.query` will have a hig
 
 ---
 
-*Last updated: April 2026 · Based on jina-embeddings-v3 (current) and v5 (latest) · Elastic 8.x + Jina AI (Elastic acquisition) · Enterprise AI-KB internal reference*
+*Last updated: April 2026 · Based on jina-embeddings-v3 (current) and v5 (latest) · Elastic 9.x + Jina AI (Elastic acquisition) · Enterprise AI-KB internal reference*

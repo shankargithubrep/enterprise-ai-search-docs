@@ -518,4 +518,4 @@ Example: If your SharePoint library has a custom `Department` column, add a `set
 
 ---
 
-*Connector version: Elastic 8.x · Last updated: 2025 · Enterprise AI-KB internal reference*
+*Connector version: Elastic 9.x · Last updated: 2025 · Enterprise AI-KB internal reference*

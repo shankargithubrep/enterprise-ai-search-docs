@@ -48,7 +48,7 @@
 
 ## Testing
 
-<!-- How did you verify the content? e.g. "Tested against Elastic 8.14 dev cluster", "Verified IAM policy in AWS console", "Validated JSON in jq" -->
+<!-- How did you verify the content? e.g. "Tested against Elastic 9.x dev cluster", "Verified IAM policy in AWS console", "Validated JSON in jq" -->
 
 ---
 

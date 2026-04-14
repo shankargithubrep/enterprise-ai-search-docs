@@ -426,4 +426,4 @@ The choice depends on the site's content structure. For knowledge base sites whe
 
 ---
 
-*Connector version: Elastic 8.x · Last updated: 2025 · Enterprise AI-KB internal reference*
+*Connector version: Elastic 9.x · Last updated: 2025 · Enterprise AI-KB internal reference*

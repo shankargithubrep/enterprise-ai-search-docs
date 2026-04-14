@@ -8,7 +8,7 @@
 
 - [Overview](#overview)
 - [How It Works](#how-it-works)
-  - [Incremental Sync — Step by Step](#incremental-sync--step-by-step)
+  - [Incremental Sync - Step by Step](#incremental-sync--step-by-step)
   - [High-Watermark Timestamp Mechanism](#high-watermark-timestamp-mechanism)
   - [Object Types Synced](#object-types-synced)
   - [Full Sync vs Incremental Sync](#full-sync-vs-incremental-sync)
@@ -29,9 +29,9 @@
 
 ## Overview
 
-The Elastic Salesforce Connector synchronises records from Salesforce objects (Knowledge Articles, Cases, Solutions, custom objects) into Elasticsearch using the **Salesforce REST API** and **Bulk API 2.0**. Change detection uses a **high-watermark timestamp** — the connector queries for records with `LastModifiedDate > last_sync_timestamp`, which is native to Salesforce's SOQL query language and requires no server-side cursor infrastructure.
+The Elastic Salesforce Connector synchronises records from Salesforce objects (Knowledge Articles, Cases, Solutions, custom objects) into Elasticsearch using the **Salesforce REST API** and **Bulk API 2.0**. Change detection uses a **high-watermark timestamp** - the connector queries for records with `LastModifiedDate > last_sync_timestamp`, which is native to Salesforce's SOQL query language and requires no server-side cursor infrastructure.
 
-In the Enterprise AI-KB architecture, the Salesforce connector is particularly important because customers' primary knowledge sources are often Salesforce Knowledge articles — the structured FAQs, troubleshooting guides, and product documentation that contact centre agents need during live calls.
+In the Enterprise AI-KB architecture, the Salesforce connector is particularly important because customers' primary knowledge sources are often Salesforce Knowledge articles - the structured FAQs, troubleshooting guides, and product documentation that contact centre agents need during live calls.
 
 ```
 Salesforce Org (Knowledge Articles, Cases, custom objects)
@@ -62,15 +62,15 @@ Tenant Index (BM25 + kNN searchable)
 
 ## How It Works
 
-### Incremental Sync — Step by Step
+### Incremental Sync - Step by Step
 
-1. **Schedule trigger** — Reads cron from `.elastic-connectors`. Default: `0 * * * *`.
+1. **Schedule trigger** - Reads cron from `.elastic-connectors`. Default: `0 * * * *`.
 
-2. **OAuth token** — Connector uses JWT Bearer flow: signs a JWT with the private key, sends to `https://{instance}.salesforce.com/services/oauth2/token`. Returns `access_token` + `instance_url`. Token valid for ~1 hour, refreshed automatically.
+2. **OAuth token** - Connector uses JWT Bearer flow: signs a JWT with the private key, sends to `https://{instance}.salesforce.com/services/oauth2/token`. Returns `access_token` + `instance_url`. Token valid for ~1 hour, refreshed automatically.
 
-3. **High-watermark read** — Loads `last_sync_timestamp` from `sync_cursor` field in `.elastic-connectors`.
+3. **High-watermark read** - Loads `last_sync_timestamp` from `sync_cursor` field in `.elastic-connectors`.
 
-4. **SOQL query** — Constructs and runs incremental query for each configured object type:
+4. **SOQL query** - Constructs and runs incremental query for each configured object type:
 
    ```sql
    SELECT Id, Title, ArticleBody, LastModifiedDate, CreatedDate, ...
@@ -80,17 +80,17 @@ Tenant Index (BM25 + kNN searchable)
    ORDER BY LastModifiedDate ASC
    ```
 
-5. **Pagination** — Salesforce REST API returns up to 2,000 records per page. Connector follows `nextRecordsUrl` until all pages are consumed.
+5. **Pagination** - Salesforce REST API returns up to 2,000 records per page. Connector follows `nextRecordsUrl` until all pages are consumed.
 
-6. **Attachment fetch** — For records with file attachments, connector calls `GET /services/data/v58.0/sobjects/Attachment/{id}/Body` to download binary content, then passes to Tika.
+6. **Attachment fetch** - For records with file attachments, connector calls `GET /services/data/v58.0/sobjects/Attachment/{id}/Body` to download binary content, then passes to Tika.
 
-7. **Field mapping** — Record fields mapped to Elastic document schema (see [Supported Object Types](#supported-object-types--field-mapping)).
+7. **Field mapping** - Record fields mapped to Elastic document schema (see [Supported Object Types](#supported-object-types--field-mapping)).
 
-8. **Bulk indexing** — Documents batched and sent to `_bulk` API with ingest pipeline.
+8. **Bulk indexing** - Documents batched and sent to `_bulk` API with ingest pipeline.
 
-9. **Deletion handling** — Separate query using `queryAll()` with `IsDeleted = true` and `LastModifiedDate > watermark` to find deleted records. Issues DELETE operations for these.
+9. **Deletion handling** - Separate query using `queryAll()` with `IsDeleted = true` and `LastModifiedDate > watermark` to find deleted records. Issues DELETE operations for these.
 
-10. **Watermark update** — On success, `sync_cursor` updated to current UTC timestamp minus a 60-second buffer (to handle clock skew between Salesforce servers).
+10. **Watermark update** - On success, `sync_cursor` updated to current UTC timestamp minus a 60-second buffer (to handle clock skew between Salesforce servers).
 
 ---
 
@@ -119,7 +119,7 @@ The connector supports these Salesforce object types by default:
 
 | Object | SOQL table | Typical use for this deployment |
 |---|---|---|
-| Salesforce Knowledge Articles | `Knowledge__kav` | Primary knowledge base content — FAQs, troubleshooting guides |
+| Salesforce Knowledge Articles | `Knowledge__kav` | Primary knowledge base content - FAQs, troubleshooting guides |
 | Cases | `Case` | Resolved case descriptions and solutions |
 | Campaigns | `Campaign` | Product/service campaign information |
 | Contacts | `Contact` | Contact directory (if relevant to agent assist) |
@@ -136,10 +136,10 @@ For Enterprise AI-KB, the primary objects are `Knowledge__kav` and `Case`. Other
 
 | | Incremental | Full |
 |---|---|---|
-| **SOQL filter** | `LastModifiedDate > watermark` | No date filter — all records |
+| **SOQL filter** | `LastModifiedDate > watermark` | No date filter - all records |
 | **API volume** | Low (only changed records) | Full record count per object |
 | **Deletion detection** | `IsDeleted = true AND LastModifiedDate > watermark` | Full diff against ES index |
-| **API governor impact** | Low | High — monitor API usage |
+| **API governor impact** | Low | High - monitor API usage |
 
 ---
 
@@ -166,7 +166,7 @@ After 15 days in the Recycle Bin, records are permanently deleted and no longer 
 | Scenario | Verdict | Reason |
 |---|---|---|
 | Salesforce Knowledge Articles as primary KB | ✅ Use | Exactly the target use case. Rich article structure maps well to search. |
-| Case deflection — indexing resolved cases | ✅ Use | Case records with resolution notes are valuable KB content. Filter by `Status = 'Closed'`. |
+| Case deflection - indexing resolved cases | ✅ Use | Case records with resolution notes are valuable KB content. Filter by `Status = 'Closed'`. |
 | Custom Salesforce objects with knowledge content | ✅ Use | Any `__c` object with text fields can be configured as a sync target. |
 | Salesforce org with <10,000 Knowledge articles | ✅ Use | Well within API governor limits for hourly incremental sync. |
 | Multi-org Salesforce setup (per customer) | ✅ Use | One connector instance per Salesforce org. Standard pattern. |
@@ -224,7 +224,7 @@ Create a dedicated Salesforce API user (not a named human user) with these permi
 |---|---|
 | `API Enabled` | Required for any REST API access |
 | `View All Data` | Read access to all object records |
-| `Modify All Data` | Not required — read-only access is sufficient. Do NOT grant this. |
+| `Modify All Data` | Not required - read-only access is sufficient. Do NOT grant this. |
 | Object-level read access on synced objects | `Knowledge__kav`, `Case`, etc. must be readable by the API user's profile |
 | Field-level read access on synced fields | All fields in the SOQL SELECT must be readable by the profile |
 
@@ -272,7 +272,7 @@ def provision_salesforce_connector(
         body={
             "index_name":   f"search-kb-{tenant_id}",
             "service_type": "salesforce",
-            "name":         f"Tenant {tenant_id} — Salesforce",
+            "name":         f"Tenant {tenant_id} - Salesforce",
             "configuration": {
                 "domain":        {"value": sf_domain},
                 "client_id":     {"value": client_id},
@@ -328,7 +328,7 @@ def provision_salesforce_connector(
 
 | Limitation | Severity | Impact | Mitigation |
 |---|---|---|---|
-| Salesforce API governor limits | High | Each Salesforce org has daily API call limits (5,000–unlimited depending on edition). Connector consumes API calls on every sync. | Monitor `API Requests Last 24 Hours` in Salesforce Setup. Use Bulk API 2.0 for initial full sync of large orgs (fewer API calls for large datasets). |
+| Salesforce API governor limits | High | Each Salesforce org has daily API call limits (5,000-unlimited depending on edition). Connector consumes API calls on every sync. | Monitor `API Requests Last 24 Hours` in Salesforce Setup. Use Bulk API 2.0 for initial full sync of large orgs (fewer API calls for large datasets). |
 | High-watermark misses batch failures | Medium | If a sync batch fails mid-way, watermark may advance past unprocessed records. | 60-second buffer mitigates clock skew. Weekly full sync catches stragglers. |
 | 10 MB Tika limit on attachments | High | Large attached files silently skipped. | Pre-ingest chunking pipeline for known large attachment types. |
 | Salesforce Knowledge requires specific license | Medium | `Knowledge__kav` object only accessible with Salesforce Knowledge license. Not included in all Salesforce editions. | Confirm license with customer before configuring Knowledge sync. Fall back to Case object if Knowledge not licensed. |
@@ -343,10 +343,10 @@ def provision_salesforce_connector(
 For this deployment, each enterprise customer has their own Salesforce org. The deployment pattern is:
 
 - **One Connected App per Salesforce org** (per customer)
-- **One Salesforce API user per org** — dedicated service account, read-only profile
+- **One Salesforce API user per org** - dedicated service account, read-only profile
 - **Sync `Knowledge__kav` + `Case`** by default; enable additional objects per customer requirement
-- **Filter Knowledge articles** to `PublishStatus = 'Online'` — do not index draft or archived articles
-- **Filter Cases** to `Status = 'Closed'` — only resolved cases are useful as KB content
+- **Filter Knowledge articles** to `PublishStatus = 'Online'` - do not index draft or archived articles
+- **Filter Cases** to `Status = 'Closed'` - only resolved cases are useful as KB content
 
 ```sql
 -- Recommended Knowledge sync SOQL filter
@@ -369,7 +369,7 @@ WHERE Status = 'Closed'
 ## Technical Q&A
 
 <details>
-<summary><strong>Salesforce API governor limits — exactly how many API calls does the connector consume per sync cycle?</strong></summary>
+<summary><strong>Salesforce API governor limits - exactly how many API calls does the connector consume per sync cycle?</strong></summary>
 
 For an incremental sync of a Salesforce org with 5,000 Knowledge articles where 50 were modified since last sync:
 
@@ -393,9 +393,9 @@ Against a typical Salesforce Enterprise edition limit of 1,000,000 calls/24h, ev
 <details>
 <summary><strong>How does the connector handle Salesforce rich text fields (HTML content in ArticleBody)?</strong></summary>
 
-Salesforce Knowledge ArticleBody and other rich text fields return HTML content. The connector passes this HTML to Tika, which strips the HTML tags and extracts the plain text content. Embedded images in rich text are not OCR'd — their `alt` text is extracted if present.
+Salesforce Knowledge ArticleBody and other rich text fields return HTML content. The connector passes this HTML to Tika, which strips the HTML tags and extracts the plain text content. Embedded images in rich text are not OCR'd - their `alt` text is extracted if present.
 
-The HTML stripping means formatting (bold, headers, lists) is lost in the indexed `body` field. For knowledge retrieval purposes this is generally acceptable — the semantic content is preserved. If the formatting context matters (e.g. step 1, step 2, step 3 in a procedure), consider pre-processing the HTML to preserve list structure before indexing.
+The HTML stripping means formatting (bold, headers, lists) is lost in the indexed `body` field. For knowledge retrieval purposes this is generally acceptable - the semantic content is preserved. If the formatting context matters (e.g. step 1, step 2, step 3 in a procedure), consider pre-processing the HTML to preserve list structure before indexing.
 
 One edge case: Salesforce sometimes stores HTML with Salesforce-specific markup like `<c:component>` tags. Tika does not understand these and may produce noisy output around them. Review Tika extraction quality on a sample of your customer's ArticleBody content before going live.
 
@@ -404,7 +404,7 @@ One edge case: Salesforce sometimes stores HTML with Salesforce-specific markup 
 <details>
 <summary><strong>If the Salesforce security token changes (password reset), how quickly does the connector fail and how do you recover?</strong></summary>
 
-The connector fails on the next sync attempt after the token changes — typically within the hour. The failure mode is `INVALID_LOGIN: Invalid username, password, security token; or user locked out`. The sync job is marked `failed`.
+The connector fails on the next sync attempt after the token changes - typically within the hour. The failure mode is `INVALID_LOGIN: Invalid username, password, security token; or user locked out`. The sync job is marked `failed`.
 
 Recovery steps:
 1. Get the new security token from Salesforce Setup → My Personal Information → Reset My Security Token (sent via email)
@@ -412,18 +412,18 @@ Recovery steps:
 3. Update via Connector API: `PUT /_connector/{id}/_configuration` with `{"password": {"value": "newpasswordNEWTOKEN"}}`
 4. Trigger manual sync to verify: `POST /_connector/{id}/_sync_now`
 
-Prevention: Use a dedicated Salesforce API user with a never-expiring password (set `Password Never Expires` in the user profile). Lock down the profile so the user cannot log in via the UI — only via API. This eliminates the password reset scenario.
+Prevention: Use a dedicated Salesforce API user with a never-expiring password (set `Password Never Expires` in the user profile). Lock down the profile so the user cannot log in via the UI - only via API. This eliminates the password reset scenario.
 
 </details>
 
 <details>
-<summary><strong>How does the connector handle Salesforce Knowledge's multi-language support — are all language variants indexed?</strong></summary>
+<summary><strong>How does the connector handle Salesforce Knowledge's multi-language support - are all language variants indexed?</strong></summary>
 
-Salesforce Knowledge supports articles in multiple languages as separate records — each language version is a separate `Knowledge__kav` record with the same `KnowledgeArticleId` but different `Language` field values.
+Salesforce Knowledge supports articles in multiple languages as separate records - each language version is a separate `Knowledge__kav` record with the same `KnowledgeArticleId` but different `Language` field values.
 
 The connector indexes each language version as a separate Elasticsearch document with its own `_id`. This means a Knowledge article with English, French, and Spanish versions creates 3 Elasticsearch documents.
 
-For the Enterprise use case, this is the correct behaviour — each language version should be independently searchable. Ensure your index mapping includes the `language` field so you can filter search results by language at query time:
+For the Enterprise use case, this is the correct behaviour - each language version should be independently searchable. Ensure your index mapping includes the `language` field so you can filter search results by language at query time:
 
 ```json
 GET search-kb-tenant-123/_search

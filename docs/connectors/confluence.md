@@ -8,8 +8,8 @@
 
 - [Overview](#overview)
 - [How It Works](#how-it-works)
-  - [Incremental Sync — Step by Step](#incremental-sync--step-by-step)
-  - [Content Hierarchy — Spaces, Pages, Blog Posts](#content-hierarchy--spaces-pages-blog-posts)
+  - [Incremental Sync - Step by Step](#incremental-sync--step-by-step)
+  - [Content Hierarchy - Spaces, Pages, Blog Posts](#content-hierarchy--spaces-pages-blog-posts)
   - [Full Sync vs Incremental Sync](#full-sync-vs-incremental-sync)
   - [Deletion Detection](#deletion-detection)
 - [When to Use / When Not to Use](#when-to-use--when-not-to-use)
@@ -27,9 +27,9 @@
 
 ## Overview
 
-The Elastic Confluence Connector synchronises pages, blog posts, and attachments from Confluence into Elasticsearch. It supports both **Confluence Cloud** (Atlassian Cloud SaaS) and **Confluence Data Center** (self-managed). Change detection uses a per-space timestamp watermark — the connector queries each space for content modified after the stored timestamp.
+The Elastic Confluence Connector synchronises pages, blog posts, and attachments from Confluence into Elasticsearch. It supports both **Confluence Cloud** (Atlassian Cloud SaaS) and **Confluence Data Center** (self-managed). Change detection uses a per-space timestamp watermark - the connector queries each space for content modified after the stored timestamp.
 
-In the Enterprise AI-KB architecture, the Confluence connector indexes internal team knowledge — runbooks, product documentation, onboarding guides, and process wikis that contact centre agents reference during customer interactions.
+In the Enterprise AI-KB architecture, the Confluence connector indexes internal team knowledge - runbooks, product documentation, onboarding guides, and process wikis that contact centre agents reference during customer interactions.
 
 ```
 Confluence (Cloud or Data Center)
@@ -59,15 +59,15 @@ Tenant Index (BM25 + kNN searchable)
 
 ## How It Works
 
-### Incremental Sync — Step by Step
+### Incremental Sync - Step by Step
 
-1. **Schedule trigger** — Reads cron from `.elastic-connectors`. Default: `0 * * * *`.
+1. **Schedule trigger** - Reads cron from `.elastic-connectors`. Default: `0 * * * *`.
 
-2. **Authentication** — For Cloud: HTTP Basic auth with email + API token. For Data Center: HTTP Basic auth with username + password. Token sent as Base64-encoded header on every request.
+2. **Authentication** - For Cloud: HTTP Basic auth with email + API token. For Data Center: HTTP Basic auth with username + password. Token sent as Base64-encoded header on every request.
 
-3. **Space enumeration** — Calls `GET /wiki/rest/api/space?limit=50` to list all spaces accessible to the account. Filters by `space_keys` allowlist if configured.
+3. **Space enumeration** - Calls `GET /wiki/rest/api/space?limit=50` to list all spaces accessible to the account. Filters by `space_keys` allowlist if configured.
 
-4. **Per-space content query** — For each space, calls:
+4. **Per-space content query** - For each space, calls:
 
    ```
    GET /wiki/rest/api/content
@@ -80,23 +80,23 @@ Tenant Index (BM25 + kNN searchable)
      &expand=body.storage,history,ancestors,children.page
    ```
 
-5. **Page content extraction** — Confluence returns page body as **Confluence Storage Format** (a subset of XHTML). The connector passes this through a lightweight HTML stripper to extract plain text — Tika is not used for page content (only for attachments).
+5. **Page content extraction** - Confluence returns page body as **Confluence Storage Format** (a subset of XHTML). The connector passes this through a lightweight HTML stripper to extract plain text - Tika is not used for page content (only for attachments).
 
-6. **Attachment processing** — For each page, calls `GET /wiki/rest/api/content/{page_id}/child/attachment` to list attachments, then downloads each and passes to Tika.
+6. **Attachment processing** - For each page, calls `GET /wiki/rest/api/content/{page_id}/child/attachment` to list attachments, then downloads each and passes to Tika.
 
-7. **Child page traversal** — The connector recursively fetches child pages if `expand=children.page` returns sub-pages. Depth is configurable.
+7. **Child page traversal** - The connector recursively fetches child pages if `expand=children.page` returns sub-pages. Depth is configurable.
 
-8. **Blog posts** — Separate query with `type=blogpost` for blog post content.
+8. **Blog posts** - Separate query with `type=blogpost` for blog post content.
 
-9. **Field mapping** — Content mapped to Elastic document schema.
+9. **Field mapping** - Content mapped to Elastic document schema.
 
-10. **Bulk indexing** — Documents sent to `_bulk` API with ingest pipeline.
+10. **Bulk indexing** - Documents sent to `_bulk` API with ingest pipeline.
 
-11. **Watermark update** — Per-space watermark updated in `sync_cursor` on completion.
+11. **Watermark update** - Per-space watermark updated in `sync_cursor` on completion.
 
 ---
 
-### Content Hierarchy — Spaces, Pages, Blog Posts
+### Content Hierarchy - Spaces, Pages, Blog Posts
 
 Understanding Confluence's content hierarchy is important for configuring the connector correctly:
 
@@ -154,7 +154,7 @@ Permanently deleted content (purged from Trash) is only detectable via full sync
 | Internal wikis with structured product documentation | ✅ Use | Pages with structured content (headers, tables, procedures) extract well. |
 | Spaces with mostly image/diagram content (no text) | ⚠️ Partial | Pages that are primarily diagrams (draw.io embeds, Gliffy, etc.) extract no meaningful text. Body will be sparse. |
 | Confluence Server (legacy, EOL 2024) | ⚠️ Check | Confluence Server reached EOL. API compatibility may vary. Test connector against your specific Server version. |
-| Confluence with Jira-linked content | ✅ Use | Jira issue links in Confluence pages are extracted as text references — useful context for KB search. |
+| Confluence with Jira-linked content | ✅ Use | Jira issue links in Confluence pages are extracted as text references - useful context for KB search. |
 | Spaces used as project tracking (Kanban boards, sprint pages) | ❌ Don't index | Project tracking content clutters the knowledge base. Use space key allowlist to exclude. |
 | Personal spaces (user home pages) | ❌ Don't index | Personal spaces contain user-specific content irrelevant to KB search. Exclude from `space_keys`. |
 
@@ -170,7 +170,7 @@ Permanently deleted content (purged from Trash) is only detectable via full sync
 | `username` | string | required | **Cloud:** Atlassian account email address. **Data Center:** Username. |
 | `password` | secret | required | **Cloud:** Atlassian API token (NOT your Atlassian password). **Data Center:** User password. |
 | `space_keys` | list | `[]` (all spaces) | Allowlist of space keys to sync. Empty = all accessible spaces. **Strongly recommend setting this for production.** |
-| `index_labels` | boolean | `false` | Include Confluence page labels as a searchable field. Adds API calls — enable only if label-based filtering is needed. |
+| `index_labels` | boolean | `false` | Include Confluence page labels as a searchable field. Adds API calls - enable only if label-based filtering is needed. |
 | `index_restrictions` | boolean | `false` | Enable document-level security based on Confluence page restrictions. Requires additional API calls per page. |
 
 ---
@@ -234,7 +234,7 @@ def provision_confluence_connector(
         body={
             "index_name":   f"search-kb-{tenant_id}",
             "service_type": "confluence",
-            "name":         f"Tenant {tenant_id} — Confluence",
+            "name":         f"Tenant {tenant_id} - Confluence",
             "configuration": {
                 "url":          {"value": confluence_url},
                 "username":     {"value": username},
@@ -264,11 +264,11 @@ def provision_confluence_connector(
 | `title` | `title` | Page title |
 | `url` | `_links.webui` | Full web URL to the page |
 | `created_at` | `history.createdDate` | |
-| `last_modified` | `version.when` | Last edit timestamp — used as watermark |
+| `last_modified` | `version.when` | Last edit timestamp - used as watermark |
 | `author` | `history.createdBy.displayName` | Page author |
 | `space` | `space.key` + `space.name` | Space the page belongs to |
 | `type` | `type` | `page` or `blogpost` |
-| `ancestors` | `ancestors[].title` | Breadcrumb path — useful for context |
+| `ancestors` | `ancestors[].title` | Breadcrumb path - useful for context |
 
 ### Attachments
 
@@ -288,8 +288,8 @@ def provision_confluence_connector(
 | Limitation | Severity | Impact | Mitigation |
 |---|---|---|---|
 | 10 MB Tika limit on attachments | High | Large attached PDFs, DOCX silently skipped. | Pre-ingest chunking pipeline for attachment content. |
-| Confluence macros not rendered | Medium | Content inside Confluence macros (Table of Contents, Include Page, Excerpt) is not rendered — macro markup appears as raw text or is stripped. | Accept for most KB content. For Include Page macros, the included content is in the source page's own document anyway. |
-| draw.io / Gliffy diagrams produce empty body | Medium | Diagram-heavy pages return empty body — no text to search. | Accept. These pages rank low in text-based search but their titles and space context remain searchable. |
+| Confluence macros not rendered | Medium | Content inside Confluence macros (Table of Contents, Include Page, Excerpt) is not rendered - macro markup appears as raw text or is stripped. | Accept for most KB content. For Include Page macros, the included content is in the source page's own document anyway. |
+| draw.io / Gliffy diagrams produce empty body | Medium | Diagram-heavy pages return empty body - no text to search. | Accept. These pages rank low in text-based search but their titles and space context remain searchable. |
 | Offset-based pagination (same as ServiceNow) | Medium | Record shifts during large syncs may cause occasional double-index or skip. | Watermark filter minimises the working set. Weekly full sync catches stragglers. |
 | Atlassian Cloud rate limiting | Medium | Cloud instances apply rate limits (typically 429 with `Retry-After`). Large initial syncs may be throttled. | Schedule initial full syncs off-peak. Connector handles `Retry-After` automatically. |
 | API token rotation (Cloud) | Medium | Atlassian API tokens do not expire by default but can be revoked. No automatic rotation. | Rotate annually. Update `.elastic-connectors` via Connector API when renewed. |
@@ -321,33 +321,33 @@ space_keys = [
 
 **Filter best practices:**
 
-The connector does not support server-side filtering by label or category in the API query — filtering happens at the connector level after fetching. For large Confluence instances with many irrelevant spaces, the `space_keys` allowlist is the most important performance optimisation.
+The connector does not support server-side filtering by label or category in the API query - filtering happens at the connector level after fetching. For large Confluence instances with many irrelevant spaces, the `space_keys` allowlist is the most important performance optimisation.
 
 ---
 
 ## Technical Q&A
 
 <details>
-<summary><strong>Confluence Storage Format is not standard HTML — how does the connector extract clean text from it, and what gets lost?</strong></summary>
+<summary><strong>Confluence Storage Format is not standard HTML - how does the connector extract clean text from it, and what gets lost?</strong></summary>
 
-Confluence Storage Format (CSF) is an XML-based format that looks like XHTML but includes Confluence-specific macro tags (`<ac:structured-macro>`, `<ac:parameter>`, etc.). The connector does not use Tika for page content extraction — it uses a lightweight HTML/XML tag stripper that removes all tags and returns the text content of text nodes.
+Confluence Storage Format (CSF) is an XML-based format that looks like XHTML but includes Confluence-specific macro tags (`<ac:structured-macro>`, `<ac:parameter>`, etc.). The connector does not use Tika for page content extraction - it uses a lightweight HTML/XML tag stripper that removes all tags and returns the text content of text nodes.
 
-What is preserved: All visible text — paragraph text, list items, table cell content, heading text, link text.
+What is preserved: All visible text - paragraph text, list items, table cell content, heading text, link text.
 
 What is lost: Macro content (Jira issue lists, page includes, dynamic content), formatting context (bold/italic status), table structure (flattened to space-separated cell values), code block content (stripped as regular text), image alt text.
 
-For knowledge base use cases, this is generally acceptable — the semantic content of the text is preserved. The main edge case is code blocks in technical documentation: `<ac:structured-macro ac:name="code">` macro content is stripped differently depending on connector version. Test code-heavy technical pages against a sample to confirm the body content is usable.
+For knowledge base use cases, this is generally acceptable - the semantic content of the text is preserved. The main edge case is code blocks in technical documentation: `<ac:structured-macro ac:name="code">` macro content is stripped differently depending on connector version. Test code-heavy technical pages against a sample to confirm the body content is usable.
 
 </details>
 
 <details>
-<summary><strong>How does the connector handle the Include Page macro — does it index the included content?</strong></summary>
+<summary><strong>How does the connector handle the Include Page macro - does it index the included content?</strong></summary>
 
-No. The Include Page macro (`<ac:structured-macro ac:name="include">`) is a reference to another page — it renders the included page's content at display time, but the stored CSF contains only the macro reference tag, not the actual content.
+No. The Include Page macro (`<ac:structured-macro ac:name="include">`) is a reference to another page - it renders the included page's content at display time, but the stored CSF contains only the macro reference tag, not the actual content.
 
-The connector sees the macro tag, strips it (since it's not text), and does not follow the reference to fetch the included page's content. The included page IS indexed separately as its own document (since the connector crawls all pages in the space). So the content is in the index — just not duplicated in the including page's document.
+The connector sees the macro tag, strips it (since it's not text), and does not follow the reference to fetch the included page's content. The included page IS indexed separately as its own document (since the connector crawls all pages in the space). So the content is in the index - just not duplicated in the including page's document.
 
-This means a search for terms that appear only in an included page will return the included page's document, not the page that includes it. This is generally the correct behaviour — you want to surface the authoritative source, not every page that includes it.
+This means a search for terms that appear only in an included page will return the included page's document, not the page that includes it. This is generally the correct behaviour - you want to surface the authoritative source, not every page that includes it.
 
 </details>
 
@@ -358,7 +358,7 @@ Incremental sync (30 pages changed):
 
 1. Space enumeration: 1 call (lists all accessible spaces)
 2. Content query for the space (30 results, fits in 1 page of 50): 1 call
-3. For each of 30 pages — fetch full content with body: 0 additional calls (body included in `expand=body.storage`)
+3. For each of 30 pages - fetch full content with body: 0 additional calls (body included in `expand=body.storage`)
 4. Attachment list for 30 changed pages: 30 calls (1 per page)
 5. Attachment download for changed attachments (assume 10 of 30 pages have changed attachments): 10 calls
 
@@ -377,7 +377,7 @@ Atlassian Cloud's documented rate limit for REST API is approximately 10 request
 </details>
 
 <details>
-<summary><strong>Confluence Cloud recently deprecated API v1 in favour of v2 — which version does the connector use and what breaks if the deprecation completes?</strong></summary>
+<summary><strong>Confluence Cloud recently deprecated API v1 in favour of v2 - which version does the connector use and what breaks if the deprecation completes?</strong></summary>
 
 The Elastic Confluence connector uses API v1 (`/wiki/rest/api/`) as its primary interface, with some v2 (`/wiki/api/v2/`) calls for specific operations in newer connector versions. As of Elastic 8.x, v1 is still the primary path.
 

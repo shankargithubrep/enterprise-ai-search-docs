@@ -1,4 +1,4 @@
-# Enterprise AI Search — Elastic Connector & Crawler Docs
+# Enterprise AI Search - Elastic Connector & Crawler Docs
 
 > Internal technical reference for the Enterprise AI Knowledge Retrieval platform.  
 > Covers Elastic connectors, web crawlers, and chunking strategies for the multi-tenant hybrid search deployment (BM25 + Jina v3 semantic, multi-region, self-managed AWS EC2).
@@ -21,13 +21,13 @@
 
 | Guide | Description | Status |
 |---|---|---|
-| [Jina Embeddings](docs/embeddings/jina.md) | Complete reference — v3 (deployed), v4 (multimodal), v5 (latest), LoRA adapters, late chunking, asymmetric retrieval, HNSW, ONNX INT8, migration path | ✅ Complete |
+| [Jina Embeddings](docs/embeddings/jina.md) | Complete reference - v3 (deployed), v4 (multimodal), v5 (latest), LoRA adapters, late chunking, asymmetric retrieval, HNSW, ONNX INT8, migration path | ✅ Complete |
 
 ## Chunking Strategies
 
 | Guide | Description | Status |
 |---|---|---|
-| [Chunking Strategies](docs/chunking/strategies.md) | Fixed-window, recursive, semantic, parent-child, sentence window — with Jina v3, LangChain, LlamaIndex, and Elasticsearch native `semantic_text` | ✅ Complete |
+| [Chunking Strategies](docs/chunking/strategies.md) | Fixed-window, recursive, semantic, parent-child, sentence window - with Jina v3, LangChain, LlamaIndex, and Elasticsearch native `semantic_text` | ✅ Complete |
 
 ---
 
@@ -36,14 +36,14 @@
 | Parameter | Value |
 |---|---|
 | Platform | Contact Center as a Service platform |
-| Use case | Multi-tenant AI knowledge retrieval — agent assist, self-service bots |
-| Deployment | Self-managed AWS EC2 — no Docker / Kubernetes |
+| Use case | Multi-tenant AI knowledge retrieval - agent assist, self-service bots |
+| Deployment | Self-managed AWS EC2 - no Docker / Kubernetes |
 | Regions | 21 worldwide, one Elasticsearch cluster per region |
 | Standard tenants | 50 per region (1,000s globally) |
 | ES version | 8.x (latest stable) |
 | Embedding model | Jina Embeddings v3 (ONNX INT8 quantized) |
 | Connector sources | Salesforce · ServiceNow · SharePoint Online · Confluence · S3 |
-| Connector agent VM | `m6i.xlarge` — 1 VM per 10–15 tenants, systemd-managed |
+| Connector agent VM | `m6i.xlarge` - 1 VM per 10-15 tenants, systemd-managed |
 
 ---
 

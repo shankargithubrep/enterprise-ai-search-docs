@@ -8,8 +8,8 @@
 
 - [Overview](#overview)
 - [How It Works](#how-it-works)
-  - [Incremental Sync — Step by Step](#incremental-sync--step-by-step)
-  - [Delta Query — How Microsoft Graph Tracks Changes](#delta-query--how-microsoft-graph-tracks-changes)
+  - [Incremental Sync - Step by Step](#incremental-sync--step-by-step)
+  - [Delta Query - How Microsoft Graph Tracks Changes](#delta-query--how-microsoft-graph-tracks-changes)
   - [Full Sync vs Incremental Sync](#full-sync-vs-incremental-sync)
   - [Internal State Machine](#internal-state-machine)
 - [When to Use / When Not to Use](#when-to-use--when-not-to-use)
@@ -31,15 +31,15 @@
 
 ## Overview
 
-The Elastic SharePoint Online Connector synchronises documents from SharePoint Online document libraries and site pages into Elasticsearch using the **Microsoft Graph API**. Unlike the S3 connector's ETag-based polling, SharePoint uses **delta queries** — a cursor mechanism built into the Graph API that tracks changes server-side, so the connector only receives items that actually changed since the last sync rather than listing everything and diffing locally.
+The Elastic SharePoint Online Connector synchronises documents from SharePoint Online document libraries and site pages into Elasticsearch using the **Microsoft Graph API**. Unlike the S3 connector's ETag-based polling, SharePoint uses **delta queries** - a cursor mechanism built into the Graph API that tracks changes server-side, so the connector only receives items that actually changed since the last sync rather than listing everything and diffing locally.
 
-In the Enterprise AI-KB architecture, the SharePoint connector indexes tenant knowledge base content stored in SharePoint document libraries — SOPs, FAQ pages, policy documents, and wiki content — making it searchable via BM25 + Jina v3 semantic hybrid search.
+In the Enterprise AI-KB architecture, the SharePoint connector indexes tenant knowledge base content stored in SharePoint document libraries - SOPs, FAQ pages, policy documents, and wiki content - making it searchable via BM25 + Jina v3 semantic hybrid search.
 
 ```
 SharePoint Online (document libraries, site pages)
         │
         ▼
-Microsoft Graph API (delta query — cursor-based)
+Microsoft Graph API (delta query - cursor-based)
         │
         ▼
 Connector Process (Python 3.10+ / MSAL)
@@ -59,7 +59,7 @@ Tenant Index (BM25 + kNN searchable)
 | Connector process | Python 3.10+ / MSAL (Microsoft Authentication Library) | Authenticates, calls Graph API, manages delta tokens |
 | Graph API client | `requests` + Microsoft Graph v1.0 | Lists drives, fetches items, downloads content |
 | Content extractor | Apache Tika (embedded) | Extracts text from Office documents, PDF, HTML |
-| Delta token store | `.elastic-connectors` `sync_cursor` field | Cursor pointing to next delta page — the key incremental state |
+| Delta token store | `.elastic-connectors` `sync_cursor` field | Cursor pointing to next delta page - the key incremental state |
 | Ingest pipeline | Elasticsearch ingest node | Jina v3 embedding, field normalisation, PII redaction |
 | Target store | Elasticsearch index | Tenant-scoped, BM25 + kNN searchable |
 
@@ -67,23 +67,23 @@ Tenant Index (BM25 + kNN searchable)
 
 ## How It Works
 
-### Incremental Sync — Step by Step
+### Incremental Sync - Step by Step
 
-1. **Schedule trigger** — Connector reads cron schedule from `.elastic-connectors`. Default: `0 * * * *` (hourly).
+1. **Schedule trigger** - Connector reads cron schedule from `.elastic-connectors`. Default: `0 * * * *` (hourly).
 
-2. **OAuth token acquisition** — MSAL uses the Azure AD app's `client_id` + `client_secret` to request a bearer token from `https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token`. Token is cached in memory and refreshed before expiry (typically 1 hour).
+2. **OAuth token acquisition** - MSAL uses the Azure AD app's `client_id` + `client_secret` to request a bearer token from `https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token`. Token is cached in memory and refreshed before expiry (typically 1 hour).
 
-3. **Site enumeration** — Connector calls `GET /sites?search=*` (or the configured `site_collections` list) to enumerate SharePoint sites in scope.
+3. **Site enumeration** - Connector calls `GET /sites?search=*` (or the configured `site_collections` list) to enumerate SharePoint sites in scope.
 
-4. **Drive enumeration** — For each site, calls `GET /sites/{site_id}/drives` to list document libraries.
+4. **Drive enumeration** - For each site, calls `GET /sites/{site_id}/drives` to list document libraries.
 
-5. **Delta query** — For each drive, calls `GET /drives/{drive_id}/root/delta?token={delta_token}` using the stored delta token from the previous sync. Graph API returns only items that changed (created, modified, deleted) since that token was issued.
+5. **Delta query** - For each drive, calls `GET /drives/{drive_id}/root/delta?token={delta_token}` using the stored delta token from the previous sync. Graph API returns only items that changed (created, modified, deleted) since that token was issued.
 
-6. **Content download** — For each new/modified item, calls `GET /drives/{drive_id}/items/{item_id}/content` to download the file binary.
+6. **Content download** - For each new/modified item, calls `GET /drives/{drive_id}/items/{item_id}/content` to download the file binary.
 
-7. **Tika extraction** — Binary content is passed to Apache Tika for text extraction. Same 10 MB limit applies.
+7. **Tika extraction** - Binary content is passed to Apache Tika for text extraction. Same 10 MB limit applies.
 
-8. **Field mapping** — Extracted content and SharePoint metadata are mapped to the Elastic document schema:
+8. **Field mapping** - Extracted content and SharePoint metadata are mapped to the Elastic document schema:
 
    | Elasticsearch field | Source |
    |---|---|
@@ -97,15 +97,15 @@ Tenant Index (BM25 + kNN searchable)
    | `size` | File size in bytes |
    | `mime_type` | SharePoint `file.mimeType` |
 
-9. **Bulk indexing** — Documents batched and sent to Elasticsearch `_bulk` endpoint with the ingest pipeline parameter.
+9. **Bulk indexing** - Documents batched and sent to Elasticsearch `_bulk` endpoint with the ingest pipeline parameter.
 
-10. **Deletion handling** — Items returned by delta query with `deleted` flag set are issued as DELETE operations in the bulk request.
+10. **Deletion handling** - Items returned by delta query with `deleted` flag set are issued as DELETE operations in the bulk request.
 
-11. **Delta token update** — On successful completion, the new delta token (from the `@odata.deltaLink` in the final Graph API response) is saved to `sync_cursor` in `.elastic-connectors`.
+11. **Delta token update** - On successful completion, the new delta token (from the `@odata.deltaLink` in the final Graph API response) is saved to `sync_cursor` in `.elastic-connectors`.
 
 ---
 
-### Delta Query — How Microsoft Graph Tracks Changes
+### Delta Query - How Microsoft Graph Tracks Changes
 
 The delta query is the key architectural difference from S3. Instead of listing all files and comparing locally, the connector asks Graph API: **"give me everything that changed since my last cursor."**
 
@@ -123,9 +123,9 @@ If page has more results:
 GET {nextLink}  ← follows pagination until @odata.deltaLink appears
 ```
 
-The delta token is opaque — it encodes the change position in Microsoft's change feed. If the token expires (Microsoft retains delta tokens for ~30 days), the connector falls back to a full sync automatically.
+The delta token is opaque - it encodes the change position in Microsoft's change feed. If the token expires (Microsoft retains delta tokens for ~30 days), the connector falls back to a full sync automatically.
 
-> **Key advantage over S3:** No full bucket listing required. For a library with 50,000 documents where only 20 changed in the last hour, the delta query returns 20 items — not 50,000.
+> **Key advantage over S3:** No full bucket listing required. For a library with 50,000 documents where only 20 changed in the last hour, the delta query returns 20 items - not 50,000.
 
 ---
 
@@ -135,8 +135,8 @@ The delta token is opaque — it encodes the change position in Microsoft's chan
 |---|---|---|
 | **Trigger** | Cron (default: hourly) | Cron (default: weekly) + automatic delta token expiry |
 | **Graph API calls** | Proportional to number of changes | Proportional to total item count |
-| **Deletion detection** | Yes — `deleted` flag in delta response | Yes — full crawl + diff against ES index |
-| **Delta token used?** | Yes | No — starts fresh, generates new token |
+| **Deletion detection** | Yes - `deleted` flag in delta response | Yes - full crawl + diff against ES index |
+| **Delta token used?** | Yes | No - starts fresh, generates new token |
 | **Fallback trigger** | N/A | Delta token expired (>30 days since last sync) |
 
 ---
@@ -145,7 +145,7 @@ The delta token is opaque — it encodes the change position in Microsoft's chan
 
 Same two-index pattern as all Elastic connectors:
 
-**`.elastic-connectors`** — `sync_cursor` field stores the delta token per drive:
+**`.elastic-connectors`** - `sync_cursor` field stores the delta token per drive:
 
 ```json
 {
@@ -158,7 +158,7 @@ Same two-index pattern as all Elastic connectors:
 
 If a drive's delta token is missing or expired, that drive falls back to full sync automatically on next execution.
 
-**`.elastic-connector-sync-jobs`** — tracks job execution, `indexed_document_count`, `deleted_document_count`, errors.
+**`.elastic-connector-sync-jobs`** - tracks job execution, `indexed_document_count`, `deleted_document_count`, errors.
 
 ---
 
@@ -171,7 +171,7 @@ If a drive's delta token is missing or expired, that drive falls back to full sy
 | Multiple SharePoint sites per tenant | ✅ Use | Connector enumerates all sites in scope automatically. Configurable via `site_collections` allowlist. |
 | OneDrive for Business | ✅ Use | Uses same Graph API. Configure as a drive under the user's site. |
 | SharePoint Server (on-premises) | ❌ Don't use | On-premises SharePoint uses a different REST API. Requires custom connector. |
-| SharePoint lists (not document libraries) | ⚠️ Partial | List items are supported but content extraction is limited to text fields — no binary attachment extraction from list attachments. |
+| SharePoint lists (not document libraries) | ⚠️ Partial | List items are supported but content extraction is limited to text fields - no binary attachment extraction from list attachments. |
 | Very large libraries (>500K items, rarely changing) | ⚠️ Partial | Initial full sync is slow. Delta queries after that are fast. Plan for a long first-sync window. |
 | Tenant using legacy SharePoint 2013 / 2016 workflows | ⚠️ Check | Workflow-generated documents may have unusual metadata. Test extraction quality on a sample. |
 | Documents requiring SharePoint permissions enforcement | ❌ Not natively | Connector indexes all content the app registration can access. Row-level security / user-level access control not enforced in search results. |
@@ -196,14 +196,14 @@ If a drive's delta token is missing or expired, that drive falls back to full sy
 
 ### Azure AD App Registration
 
-Create one app registration per this deployment region (not per tenant — one app covers all SharePoint tenants accessible in that Azure AD).
+Create one app registration per this deployment region (not per tenant - one app covers all SharePoint tenants accessible in that Azure AD).
 
 ```
 Azure Portal → Azure Active Directory → App registrations → New registration
 
 Name:           enterprise-elastic-connector-{region}
 Account type:   Accounts in this organizational directory only
-Redirect URI:   (leave blank — this is a daemon/service app, no user login)
+Redirect URI:   (leave blank - this is a daemon/service app, no user login)
 
 After creation:
 → Certificates & secrets → New client secret (set 24-month expiry)
@@ -215,7 +215,7 @@ After creation:
 
 ### Required API Permissions
 
-All permissions are **Application** type (not Delegated) — the connector runs as a background service with no user context.
+All permissions are **Application** type (not Delegated) - the connector runs as a background service with no user context.
 
 | Permission | Type | Why needed |
 |---|---|---|
@@ -223,7 +223,7 @@ All permissions are **Application** type (not Delegated) — the connector runs 
 | `Files.Read.All` | Application | Read all files in all document libraries |
 | `User.Read.All` | Application | Resolve `createdBy` / `modifiedBy` user display names |
 
-> **Admin consent required** — these are high-privilege permissions. A Global Administrator or SharePoint Administrator must click "Grant admin consent" in the Azure Portal for the permissions to take effect.
+> **Admin consent required** - these are high-privilege permissions. A Global Administrator or SharePoint Administrator must click "Grant admin consent" in the Azure Portal for the permissions to take effect.
 
 > **Principle of least privilege note:** `Files.Read.All` grants access to ALL files across ALL sites in the tenant. For this deployment multi-tenant deployments where each "tenant" is a separate SharePoint tenant (separate Azure AD), this is fine. If multiple customers share one Azure AD tenant, use `site_collections` allowlist to scope access.
 
@@ -256,7 +256,7 @@ Content-Type: application/json
 
 {
   "index_name": "search-kb-tenant-123",
-  "name": "Tenant 123 — SharePoint Online",
+  "name": "Tenant 123 - SharePoint Online",
   "service_type": "sharepoint_online",
   "configuration": {
     "tenant_id":     { "value": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" },
@@ -284,9 +284,9 @@ Same Tika-based extraction as S3. SharePoint-specific notes:
 | Format | Notes |
 |---|---|
 | DOCX / XLSX / PPTX | Full extraction including embedded metadata (author, last modified by). |
-| SharePoint site pages (ASPX) | HTML rendered content extracted — navigation chrome stripped by Tika. |
-| OneNote (.one) | **Not supported** — Tika cannot parse OneNote binary format. OneNote content is silently skipped. |
-| Embedded images in DOCX | Not OCR'd — image text is not extracted. |
+| SharePoint site pages (ASPX) | HTML rendered content extracted - navigation chrome stripped by Tika. |
+| OneNote (.one) | **Not supported** - Tika cannot parse OneNote binary format. OneNote content is silently skipped. |
+| Embedded images in DOCX | Not OCR'd - image text is not extracted. |
 | SharePoint list attachments | Not extracted in list sync mode. Only document library binary files are extracted. |
 | Files >10 MB | Silently skipped by Tika. See [Known Limitations](#known-limitations). |
 
@@ -372,7 +372,7 @@ def provision_sharepoint_connector(
         body={
             "index_name":   f"search-kb-{tenant_id}",
             "service_type": "sharepoint_online",
-            "name":         f"Tenant {tenant_id} — SharePoint Online",
+            "name":         f"Tenant {tenant_id} - SharePoint Online",
             "configuration": {
                 "tenant_id":     {"value": azure_tenant_id},
                 "tenant_name":   {"value": azure_tenant_name},
@@ -440,13 +440,13 @@ GET .elastic-connector-sync-jobs/_search
 ## Technical Q&A
 
 <details>
-<summary><strong>How does delta query handle the case where a file is moved between SharePoint libraries — is it treated as a delete + create or as an update?</strong></summary>
+<summary><strong>How does delta query handle the case where a file is moved between SharePoint libraries - is it treated as a delete + create or as an update?</strong></summary>
 
-When a file is moved between libraries within the same SharePoint site, the Graph API delta query returns two entries: a `deleted` entry for the item's old location (in the source library's delta feed) and a `created` entry for the new location (in the destination library's delta feed). The connector processes these independently per drive — so the old document is deleted from the Elasticsearch index and a new document is indexed at the new URL.
+When a file is moved between libraries within the same SharePoint site, the Graph API delta query returns two entries: a `deleted` entry for the item's old location (in the source library's delta feed) and a `created` entry for the new location (in the destination library's delta feed). The connector processes these independently per drive - so the old document is deleted from the Elasticsearch index and a new document is indexed at the new URL.
 
-This means moving files between libraries causes a brief period (until next sync) where the document appears in search with its old URL. It also generates a new Elasticsearch `_id` (based on the new SharePoint item ID) so there is no document update — it's a delete and re-index. The practical impact for knowledge base use cases is minimal since moves are rare.
+This means moving files between libraries causes a brief period (until next sync) where the document appears in search with its old URL. It also generates a new Elasticsearch `_id` (based on the new SharePoint item ID) so there is no document update - it's a delete and re-index. The practical impact for knowledge base use cases is minimal since moves are rare.
 
-Moving files within the same library (renaming a folder) is handled differently — the delta query returns a `modified` entry with the updated `parentReference.path`, so it's processed as an update and the `url` field is refreshed.
+Moving files within the same library (renaming a folder) is handled differently - the delta query returns a `modified` entry with the updated `parentReference.path`, so it's processed as an update and the `url` field is refreshed.
 
 </details>
 
@@ -455,14 +455,14 @@ Moving files within the same library (renaming a folder) is handled differently 
 
 No graceful degradation. The MSAL token request fails immediately with `AADSTS7000215: Invalid client secret provided`. The sync job is marked `failed` with the authentication error. All subsequent scheduled syncs also fail until the secret is renewed.
 
-The connector does not cache a previously acquired token across sync cycles — it requests a fresh token at the start of each sync. So there's no grace window where cached tokens keep working.
+The connector does not cache a previously acquired token across sync cycles - it requests a fresh token at the start of each sync. So there's no grace window where cached tokens keep working.
 
 The operational requirement is a calendar reminder set 30 days before secret expiry. When renewing: generate a new secret in Azure Portal, update the `client_secret` field via the Connector API (`PUT /_connector/{id}/_configuration`), then trigger a manual sync to confirm authentication works before the old secret expires. Keep the old secret active for 24 hours as a rollback option.
 
 </details>
 
 <details>
-<summary><strong>Graph API has a complex throttling model — exactly what limits apply and how does the connector handle them?</strong></summary>
+<summary><strong>Graph API has a complex throttling model - exactly what limits apply and how does the connector handle them?</strong></summary>
 
 Microsoft Graph throttling for SharePoint is service-specific and not always well-documented. The known limits:
 
@@ -472,23 +472,23 @@ Microsoft Graph throttling for SharePoint is service-specific and not always wel
 
 The Elastic SharePoint connector handles `429` responses by reading the `Retry-After` header and sleeping for that duration before retrying. This is built into the connector's HTTP client layer and is transparent to the sync job.
 
-The throttling concern is mainly during initial full sync of large tenants. A library with 50,000 documents at 100 items per Graph API page = 500 listing requests + 50,000 content download requests = 50,500 requests, which spans 5+ throttling windows at 10,000/10min. Expect a full sync of a large library to take 60–90 minutes due to throttling pauses. Incremental syncs of typical knowledge base churn (20–100 changed items per hour) never approach the throttling limit.
+The throttling concern is mainly during initial full sync of large tenants. A library with 50,000 documents at 100 items per Graph API page = 500 listing requests + 50,000 content download requests = 50,500 requests, which spans 5+ throttling windows at 10,000/10min. Expect a full sync of a large library to take 60-90 minutes due to throttling pauses. Incremental syncs of typical knowledge base churn (20-100 changed items per hour) never approach the throttling limit.
 
 </details>
 
 <details>
 <summary><strong>If a SharePoint document is checked out by a user, does the connector index the checked-out version or the last published version?</strong></summary>
 
-The connector always indexes the **last published (major) version** — the version visible to users with read access. A checked-out document has its changes in a draft/minor version that is not accessible to the application's `Files.Read.All` permission unless the app is also granted access to draft versions.
+The connector always indexes the **last published (major) version** - the version visible to users with read access. A checked-out document has its changes in a draft/minor version that is not accessible to the application's `Files.Read.All` permission unless the app is also granted access to draft versions.
 
-This is actually the correct behaviour for a knowledge base use case — agents should see approved, published content, not in-progress drafts. If a document is checked out and not published, the connector continues to index the previous published version until the author checks in and publishes.
+This is actually the correct behaviour for a knowledge base use case - agents should see approved, published content, not in-progress drafts. If a document is checked out and not published, the connector continues to index the previous published version until the author checks in and publishes.
 
-The implication: if a knowledge base author checks out a document, makes significant changes, and leaves it checked out for several days, agents are searching against potentially stale content. This is a process issue, not a connector issue — knowledge base governance should require timely check-in.
+The implication: if a knowledge base author checks out a document, makes significant changes, and leaves it checked out for several days, agents are searching against potentially stale content. This is a process issue, not a connector issue - knowledge base governance should require timely check-in.
 
 </details>
 
 <details>
-<summary><strong>Does the connector support SharePoint's version history — can we index previous versions of a document?</strong></summary>
+<summary><strong>Does the connector support SharePoint's version history - can we index previous versions of a document?</strong></summary>
 
 No. The connector indexes the current published version only. SharePoint's version history is accessible via `GET /drives/{drive_id}/items/{item_id}/versions` but the connector does not call this endpoint.
 

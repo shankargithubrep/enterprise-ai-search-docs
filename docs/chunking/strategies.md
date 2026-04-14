@@ -7,7 +7,7 @@
 ## Table of Contents
 
 - [Why Chunking Matters](#why-chunking-matters)
-- [Jina v3 Context Window — What It Changes](#jina-v3-context-window--what-it-changes)
+- [Jina v3 Context Window - What It Changes](#jina-v3-context-window--what-it-changes)
 - [Chunking Strategies](#chunking-strategies-1)
   - [Fixed-Window (Character / Token)](#1-fixed-window-character--token)
   - [Recursive Character Splitter](#2-recursive-character-splitter)
@@ -28,7 +28,7 @@
 
 ## Why Chunking Matters
 
-Most documents are too long to embed as a single vector. The embedding model converts text to a fixed-size vector — if the document exceeds the model's context window, content is truncated and lost. Even within the context window, long documents produce coarse-grained vectors that average the semantic content of many topics — reducing retrieval precision.
+Most documents are too long to embed as a single vector. The embedding model converts text to a fixed-size vector - if the document exceeds the model's context window, content is truncated and lost. Even within the context window, long documents produce coarse-grained vectors that average the semantic content of many topics - reducing retrieval precision.
 
 **The problem chunking solves:**
 
@@ -44,20 +44,20 @@ Query: "I'm not getting the password reset email"
 Without chunking:
   - One vector for the entire document
   - Vector is a blend of all 4 sections
-  - Precision: LOW — section 3 is the relevant answer but the vector
+  - Precision: LOW - section 3 is the relevant answer but the vector
     represents the whole document
 
 With chunking (by section):
   - 4 separate vectors, one per section
   - Section 3 vector closely matches the query
-  - Precision: HIGH — exactly the right chunk is returned
+  - Precision: HIGH - exactly the right chunk is returned
 ```
 
 ---
 
-## Jina v3 Context Window — What It Changes
+## Jina v3 Context Window - What It Changes
 
-Most earlier embedding models (BERT, sentence-transformers, OpenAI ada-002) have **512 token** context windows. This forced aggressive chunking — 256–512 token chunks were mandatory.
+Most earlier embedding models (BERT, sentence-transformers, OpenAI ada-002) have **512 token** context windows. This forced aggressive chunking - 256-512 token chunks were mandatory.
 
 Jina Embeddings v3 supports **8,192 tokens** (~6,000 words). This changes the chunking calculus significantly:
 
@@ -66,11 +66,11 @@ Jina Embeddings v3 supports **8,192 tokens** (~6,000 words). This changes the ch
 | BERT / MiniLM | 512 tokens | ~380 words | Must chunk aggressively |
 | OpenAI ada-002 | 8,192 tokens | ~6,000 words | Larger chunks possible |
 | Jina v3 | **8,192 tokens** | ~6,000 words | Most KB articles fit in ONE chunk |
-| Jina v3 (ColBERT mode) | 8,192 tokens | ~6,000 words | Late interaction — different tradeoffs |
+| Jina v3 (ColBERT mode) | 8,192 tokens | ~6,000 words | Late interaction - different tradeoffs |
 
 **Practical implication for this deployment:**
 
-A typical knowledge base article of 500–2,000 words fits comfortably within Jina v3's 8,192 token window **without chunking**. Chunking is only necessary for:
+A typical knowledge base article of 500-2,000 words fits comfortably within Jina v3's 8,192 token window **without chunking**. Chunking is only necessary for:
 
 1. Documents exceeding ~6,000 words (long policy documents, comprehensive manuals)
 2. Documents where sub-section precision matters more than full-document context
@@ -100,11 +100,11 @@ def fixed_window_chunks(text: str, chunk_size: int = 1000,
 
 ```python
 # For Jina v3 (8,192 token window):
-chunk_size    = 4000  # characters (~800 tokens) — well within window, good precision
-overlap       = 400   # 10% overlap — continuity across chunk boundaries
+chunk_size    = 4000  # characters (~800 tokens) - well within window, good precision
+overlap       = 400   # 10% overlap - continuity across chunk boundaries
 
 # For shorter, more targeted retrieval:
-chunk_size    = 1500  # characters (~300 tokens) — FAQ-style precision
+chunk_size    = 1500  # characters (~300 tokens) - FAQ-style precision
 overlap       = 150
 ```
 
@@ -114,7 +114,7 @@ overlap       = 150
 - ✅ Predictable storage overhead (chunk_count = ceil(doc_length / (chunk_size - overlap)))
 
 **When not to use:**
-- ❌ Splits mid-sentence — semantically incomplete chunks
+- ❌ Splits mid-sentence - semantically incomplete chunks
 - ❌ Doesn't respect document structure (headings, paragraphs)
 - ❌ For structured documents (SOPs, procedures) where step boundaries matter
 
@@ -151,7 +151,7 @@ def recursive_split(text: str, chunk_size: int = 1000,
     for sep in separators:
         parts = split_on_separator(text, sep)
         if all(len(p) <= chunk_size for p in parts):
-            # All parts fit — join with overlap
+            # All parts fit - join with overlap
             return _merge_with_overlap(parts, sep, chunk_size, overlap)
 
     # Last resort: character split
@@ -174,12 +174,12 @@ def _merge_with_overlap(parts, sep, chunk_size, overlap):
 ```
 
 **When to use:**
-- ✅ Better semantic quality than fixed-window — respects paragraph/sentence boundaries
+- ✅ Better semantic quality than fixed-window - respects paragraph/sentence boundaries
 - ✅ Good default for mixed document types (articles, SOPs, FAQs)
-- ✅ LangChain and LlamaIndex both implement this — no need to write from scratch
+- ✅ LangChain and LlamaIndex both implement this - no need to write from scratch
 
 **When not to use:**
-- ❌ Still content-agnostic — doesn't understand document structure (headers, sections)
+- ❌ Still content-agnostic - doesn't understand document structure (headers, sections)
 - ❌ Documents with very long paragraphs still get split mid-paragraph
 
 ---
@@ -208,7 +208,7 @@ def semantic_chunks(text: str, model_name: str = "jinaai/jina-embeddings-v3",
         similarity = float(np.dot(embeddings[i-1], embeddings[i]))
 
         if similarity < threshold:
-            # Semantic break detected — close current chunk
+            # Semantic break detected - close current chunk
             chunks.append(". ".join(current_sents))
             current_sents = [sentences[i]]
         else:
@@ -221,15 +221,15 @@ def semantic_chunks(text: str, model_name: str = "jinaai/jina-embeddings-v3",
 ```
 
 **When to use:**
-- ✅ Highest semantic coherence per chunk — each chunk is about one topic
+- ✅ Highest semantic coherence per chunk - each chunk is about one topic
 - ✅ Ideal for long documents covering multiple topics (policy manuals, comprehensive guides)
 - ✅ Retrieval precision is meaningfully higher than fixed-window for complex documents
 
 **When not to use:**
-- ❌ Computationally expensive — requires embedding every sentence during pre-processing
-- ❌ Threshold tuning required per document type — wrong threshold produces too few or too many chunks
+- ❌ Computationally expensive - requires embedding every sentence during pre-processing
+- ❌ Threshold tuning required per document type - wrong threshold produces too few or too many chunks
 - ❌ Overkill for short FAQ articles that fit in one chunk anyway
-- ❌ Not suitable for real-time chunking — use offline pre-processing pipeline
+- ❌ Not suitable for real-time chunking - use offline pre-processing pipeline
 
 ---
 
@@ -281,8 +281,8 @@ PUT /search-kb-tenant-123
 - ✅ Good for Q&A use cases where the answer is a specific sentence
 
 **When not to use:**
-- ❌ Storage overhead is high — each sentence is a separate document
-- ❌ For enterprise KB (5,000 docs × avg 100 sentences = 500K sentence documents per tenant) — significantly increases index size and shard count
+- ❌ Storage overhead is high - each sentence is a separate document
+- ❌ For enterprise KB (5,000 docs × avg 100 sentences = 500K sentence documents per tenant) - significantly increases index size and shard count
 - ❌ BM25 at sentence level loses document-level term frequency context
 
 ---
@@ -302,17 +302,17 @@ def hierarchical_chunks(document: dict, chunk_size: int = 400,
     text = document["body"]
     doc_id = document["_id"]
 
-    # Parent — store full content, no embedding
+    # Parent - store full content, no embedding
     parent = {
         "_id":        doc_id,
         "title":      document["title"],
         "url":        document["url"],
         "body":       text,
         "doc_type":   "parent",
-        # No embedding — parent not retrieved directly
+        # No embedding - parent not retrieved directly
     }
 
-    # Children — small chunks, each linked to parent
+    # Children - small chunks, each linked to parent
     chunks = recursive_split(text, chunk_size=chunk_size, overlap=overlap)
     children = []
 
@@ -352,8 +352,8 @@ parent_docs = es.mget(index=f"search-kb-{tenant_id}", ids=parent_ids)
 
 **When to use:**
 - ✅ Best balance of retrieval precision and response context richness
-- ✅ Recommended for Enterprise AI-KB — most KBs have medium-length documents (1-10 pages)
-- ✅ Efficient storage — parents stored once, children are small
+- ✅ Recommended for Enterprise AI-KB - most KBs have medium-length documents (1-10 pages)
+- ✅ Efficient storage - parents stored once, children are small
 
 **When not to use:**
 - ❌ Requires two-phase retrieval (adds latency vs single-index lookup)
@@ -367,7 +367,7 @@ parent_docs = es.mget(index=f"search-kb-{tenant_id}", ids=parent_ids)
 **What it is:** For each document, generate a summary and embed the summary. Retrieve documents based on summary similarity, then use the full document text for response generation.
 
 ```python
-# Requires an LLM to generate summaries — use Elasticsearch's inference API
+# Requires an LLM to generate summaries - use Elasticsearch's inference API
 # or a separate summarisation step in the ingest pipeline
 
 summary_ingest_pipeline = {
@@ -397,7 +397,7 @@ summary_ingest_pipeline = {
 - ✅ When you want high-level topic matching (what is this document about?)
 
 **When not to use:**
-- ❌ Requires summarisation model — additional infrastructure
+- ❌ Requires summarisation model - additional infrastructure
 - ❌ Summary may miss specific facts (e.g. exact error codes, step-by-step procedures) that are important for retrieval
 - ❌ Overkill for typical KB article lengths (<3,000 words)
 
@@ -453,7 +453,7 @@ vector_store.add_documents(md_docs)
 
 | Splitter | Use when |
 |---|---|
-| `RecursiveCharacterTextSplitter` | General purpose — best default |
+| `RecursiveCharacterTextSplitter` | General purpose - best default |
 | `TokenTextSplitter` | When you need precise token count control |
 | `MarkdownTextSplitter` | Markdown documents (Confluence exports, GitHub wikis) |
 | `HTMLHeaderTextSplitter` | HTML content where header structure matters |
@@ -536,7 +536,7 @@ index = VectorStoreIndex.from_documents(
 
 ## Elasticsearch-Native Chunking (`semantic_text`)
 
-Elasticsearch 8.11+ introduced `semantic_text` field type which handles chunking natively at index time — no external chunking pipeline needed.
+Elasticsearch 8.11+ introduced `semantic_text` field type which handles chunking natively at index time - no external chunking pipeline needed.
 
 ```json
 PUT /search-kb-tenant-123
@@ -578,15 +578,15 @@ PUT _inference/text_embedding/enterprise-jina-v3
 ```
 
 **Advantages:**
-- ✅ Zero external preprocessing — simplest possible architecture
+- ✅ Zero external preprocessing - simplest possible architecture
 - ✅ Chunking handled automatically at index time
-- ✅ Built-in parent-child management — no two-phase retrieval needed
+- ✅ Built-in parent-child management - no two-phase retrieval needed
 - ✅ Chunk highlighting in search results
 
 **Limitations:**
 - ⚠️ Less control over chunk size and strategy vs external chunking
 - ⚠️ Default chunk size (250 tokens) may be too small for some use cases
-- ⚠️ Increased index size — multiple chunk embeddings per document
+- ⚠️ Increased index size - multiple chunk embeddings per document
 - ⚠️ Requires Elasticsearch ML node configured with inference endpoint
 
 ---
@@ -596,7 +596,7 @@ PUT _inference/text_embedding/enterprise-jina-v3
 ### PDF Documents
 
 ```python
-# PDF chunking via pdfplumber — preserves page structure
+# PDF chunking via pdfplumber - preserves page structure
 import pdfplumber
 
 def chunk_pdf(pdf_path: str, chunk_size: int = 1000) -> list[dict]:
@@ -633,7 +633,7 @@ def chunk_pdf(pdf_path: str, chunk_size: int = 1000) -> list[dict]:
 ```python
 from langchain.text_splitter import MarkdownHeaderTextSplitter
 
-# Split on headers — each section becomes a chunk with header context
+# Split on headers - each section becomes a chunk with header context
 splitter = MarkdownHeaderTextSplitter(
     headers_to_split_on = [
         ("#",   "h1"),
@@ -674,7 +674,7 @@ chunks = splitter.split_text(html_content)
 | Semantic chunking | High | Medium | High | Long multi-topic docs |
 | Sentence window | High | High | Medium | Q&A, precise fact retrieval |
 | Parent-child | High | Medium | Medium | Medium-length docs (1-10 pages) |
-| `semantic_text` (native) | High | Medium-High | None (native) | Any — simplest deployment |
+| `semantic_text` (native) | High | Medium-High | None (native) | Any - simplest deployment |
 
 ---
 
@@ -685,16 +685,16 @@ Based on the this deployment parameters (50 tenants × 5,000 docs × 1 MB avg, J
 **For documents under 3,000 words (~4,000 tokens):**
 
 ```python
-# No chunking needed — fits within Jina v3 context window
+# No chunking needed - fits within Jina v3 context window
 # Index the full document as a single Elasticsearch document
-# Use semantic_text field type — handles it automatically
+# Use semantic_text field type - handles it automatically
 ```
 
-**For documents 3,000–15,000 words (compliance manuals, policy docs):**
+**For documents 3,000-15,000 words (compliance manuals, policy docs):**
 
 ```python
 splitter = RecursiveCharacterTextSplitter(
-    chunk_size    = 2000,   # ~400 tokens — good granularity for Jina v3
+    chunk_size    = 2000,   # ~400 tokens - good granularity for Jina v3
     chunk_overlap = 300,    # 15% overlap
     separators    = ["\n## ", "\n### ", "\n\n", "\n", ". ", " "],
 )
@@ -708,7 +708,7 @@ splitter = RecursiveCharacterTextSplitter(
 # 2. Extract text with pdfplumber (page-by-page)
 # 3. Apply recursive splitter (chunk_size=1500, overlap=200)
 # 4. Upload chunks as separate text files to S3 prefix
-# 5. Connector indexes the text files (no Tika extraction needed — already plain text)
+# 5. Connector indexes the text files (no Tika extraction needed - already plain text)
 ```
 
 **For HTML content from web crawler / Confluence:**
@@ -719,7 +719,7 @@ splitter = RecursiveCharacterTextSplitter(
 # This significantly improves embedding quality for hierarchical content
 ```
 
-**Overall recommendation: Use Elasticsearch `semantic_text` field type** where possible — it's the simplest path, handles chunking automatically, and integrates natively with the Jina v3 inference endpoint already configured in the cluster. Only implement custom external chunking for documents exceeding the 10 MB Tika limit (must chunk before ingest) or when you need precise control over chunk boundaries for specific content types.
+**Overall recommendation: Use Elasticsearch `semantic_text` field type** where possible - it's the simplest path, handles chunking automatically, and integrates natively with the Jina v3 inference endpoint already configured in the cluster. Only implement custom external chunking for documents exceeding the 10 MB Tika limit (must chunk before ingest) or when you need precise control over chunk boundaries for specific content types.
 
 ---
 
@@ -744,7 +744,7 @@ Compared to LangChain's RecursiveCharacterTextSplitter:
 | Respect for headers | No | No (use HTMLHeaderTextSplitter for that) |
 | Configuration location | Inference endpoint `chunking_settings` | Splitter constructor parameters |
 
-For enterprise KB content, the default `semantic_text` sentence chunking with `max_chunk_size: 250` tokens produces chunks of ~1,500–2,000 characters — comparable to `RecursiveCharacterTextSplitter(chunk_size=1500)`. The main practical difference is that `semantic_text` guarantees sentence-complete chunks while recursive character splitting may split mid-sentence when a paragraph is very long.
+For enterprise KB content, the default `semantic_text` sentence chunking with `max_chunk_size: 250` tokens produces chunks of ~1,500-2,000 characters - comparable to `RecursiveCharacterTextSplitter(chunk_size=1500)`. The main practical difference is that `semantic_text` guarantees sentence-complete chunks while recursive character splitting may split mid-sentence when a paragraph is very long.
 
 </details>
 
@@ -753,9 +753,9 @@ For enterprise KB content, the default `semantic_text` sentence chunking with `m
 
 Jina AI's own benchmarking for jina-embeddings-v3 on retrieval tasks suggests:
 
-- Optimal chunk size: **256–512 tokens** for precise factual retrieval (Q&A, troubleshooting)
-- Optimal chunk size: **512–1024 tokens** for context-rich retrieval (explanatory content, procedures)
-- Overlap: **10–15% of chunk size** — beyond 20% overlap produces diminishing returns and inflates index size
+- Optimal chunk size: **256-512 tokens** for precise factual retrieval (Q&A, troubleshooting)
+- Optimal chunk size: **512-1024 tokens** for context-rich retrieval (explanatory content, procedures)
+- Overlap: **10-15% of chunk size** - beyond 20% overlap produces diminishing returns and inflates index size
 
 For enterprise KB content (mix of FAQ articles, SOPs, and longer policy documents):
 
@@ -775,33 +775,33 @@ overlap    = 150   # tokens = 15%
 
 The intuition: smaller chunks improve precision (the retrieved chunk is more likely to contain exactly the answer) but hurt recall (the answer context may span chunk boundaries). The overlap bridges chunk boundaries so that a sentence split between two chunks appears in both, ensuring neither chunk loses its context.
 
-Test empirically against your specific corpus — the numbers above are starting points, not universal optima.
+Test empirically against your specific corpus - the numbers above are starting points, not universal optima.
 
 </details>
 
 <details>
-<summary><strong>How does chunk overlap interact with RRF (Reciprocal Rank Fusion) in hybrid search — does overlap cause duplicate retrieval that inflates RRF scores?</strong></summary>
+<summary><strong>How does chunk overlap interact with RRF (Reciprocal Rank Fusion) in hybrid search - does overlap cause duplicate retrieval that inflates RRF scores?</strong></summary>
 
-Yes, this is a real consideration. With overlapping chunks, a query that matches content in the overlap zone between chunk N and chunk N+1 will retrieve both chunks. RRF combines BM25 and kNN rankings — if both chunks appear in both rankings, they both receive RRF scores.
+Yes, this is a real consideration. With overlapping chunks, a query that matches content in the overlap zone between chunk N and chunk N+1 will retrieve both chunks. RRF combines BM25 and kNN rankings - if both chunks appear in both rankings, they both receive RRF scores.
 
 The effect: overlapping content is effectively up-ranked in the final RRF result because two documents are competing for the same information retrieval slot. This is generally benign (you want to surface relevant content) but can cause apparent "duplicates" in search results.
 
 Mitigations:
 
-1. **Post-retrieval deduplication** — after RRF, deduplicate results where `parent_id` is the same AND `chunk_idx` values differ by 1. Keep the higher-scoring chunk.
+1. **Post-retrieval deduplication** - after RRF, deduplicate results where `parent_id` is the same AND `chunk_idx` values differ by 1. Keep the higher-scoring chunk.
 
-2. **Use parent-child chunking** — retrieve at the child chunk level for precision but return the parent document. Duplicate chunks from the same parent collapse to one result.
+2. **Use parent-child chunking** - retrieve at the child chunk level for precision but return the parent document. Duplicate chunks from the same parent collapse to one result.
 
-3. **Reduce overlap** — if duplicate retrieval is a visible UX problem, reduce overlap from 15% to 5%. Precision drops slightly but duplicate results are less frequent.
+3. **Reduce overlap** - if duplicate retrieval is a visible UX problem, reduce overlap from 15% to 5%. Precision drops slightly but duplicate results are less frequent.
 
-4. **Accept it** — for enterprise KB (knowledge retrieval for agent assist), the top-1 or top-3 results are what matters. Duplicate chunks in positions 4–10 of the result set don't affect agent experience.
+4. **Accept it** - for enterprise KB (knowledge retrieval for agent assist), the top-1 or top-3 results are what matters. Duplicate chunks in positions 4-10 of the result set don't affect agent experience.
 
 </details>
 
 <details>
-<summary><strong>How do you handle multilingual documents in the this deployment — does chunking strategy change for non-English content?</strong></summary>
+<summary><strong>How do you handle multilingual documents in the this deployment - does chunking strategy change for non-English content?</strong></summary>
 
-Jina v3 is natively multilingual — trained on data in 89 languages. Chunking strategy is largely language-agnostic for the semantic embedding step.
+Jina v3 is natively multilingual - trained on data in 89 languages. Chunking strategy is largely language-agnostic for the semantic embedding step.
 
 Language-specific chunking considerations:
 
@@ -815,13 +815,13 @@ nltk.download("punkt_tab")
 from nltk.tokenize import sent_tokenize
 sentences = sent_tokenize(text, language="french")  # or "german", "spanish", etc.
 
-# For CJK (Chinese/Japanese/Korean) — use a specialised tokeniser
+# For CJK (Chinese/Japanese/Korean) - use a specialised tokeniser
 import jieba  # Chinese word segmentation
 ```
 
 **Character vs token counting:** Languages with multi-byte characters (CJK, Arabic, Hebrew) have different characters-per-token ratios. Chinese text has ~1.5 characters per token vs ~4 characters per token for English. A `chunk_size=1000` characters is ~700 tokens for English but only ~150 tokens for Chinese. Use token-based chunking (via tiktoken or sentencepiece) for consistent chunk sizes across languages.
 
-**this deployment:** If customers have multilingual knowledge bases, use `TokenTextSplitter` with explicit `encoding_name="cl100k_base"` (OpenAI's tokeniser — close enough for cross-language token count estimation) and set `chunk_size=512` tokens regardless of language.
+**this deployment:** If customers have multilingual knowledge bases, use `TokenTextSplitter` with explicit `encoding_name="cl100k_base"` (OpenAI's tokeniser - close enough for cross-language token count estimation) and set `chunk_size=512` tokens regardless of language.
 
 </details>
 

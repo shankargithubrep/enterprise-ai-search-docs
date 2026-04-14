@@ -9,9 +9,9 @@
 - [Overview](#overview)
 - [When You Need a Custom Crawler](#when-you-need-a-custom-crawler)
 - [Architecture Options](#architecture-options)
-  - [Option A — Python + requests (Static Sites)](#option-a--python--requests-static-sites)
-  - [Option B — Playwright Headless Browser (SPAs / JS-rendered)](#option-b--playwright-headless-browser-spas--js-rendered)
-  - [Option C — Scrapy Framework (Large Scale)](#option-c--scrapy-framework-large-scale)
+  - [Option A - Python + requests (Static Sites)](#option-a--python--requests-static-sites)
+  - [Option B - Playwright Headless Browser (SPAs / JS-rendered)](#option-b--playwright-headless-browser-spas--js-rendered)
+  - [Option C - Scrapy Framework (Large Scale)](#option-c--scrapy-framework-large-scale)
 - [Indexing into Elasticsearch](#indexing-into-elasticsearch)
 - [Content Extraction Patterns](#content-extraction-patterns)
 - [Authentication Handling](#authentication-handling)
@@ -24,9 +24,9 @@
 
 ## Overview
 
-A custom web crawler is any non-native crawler implementation that fetches web content and indexes it into Elasticsearch. You build and maintain it yourself. Elastic does not support custom crawlers — if it breaks, you fix it.
+A custom web crawler is any non-native crawler implementation that fetches web content and indexes it into Elasticsearch. You build and maintain it yourself. Elastic does not support custom crawlers - if it breaks, you fix it.
 
-The custom crawler feeds documents directly into Elasticsearch via the `_bulk` API, targeting the same ingest pipeline as native connectors. From Elasticsearch's perspective, the source of the document doesn't matter — it only sees the bulk request.
+The custom crawler feeds documents directly into Elasticsearch via the `_bulk` API, targeting the same ingest pipeline as native connectors. From Elasticsearch's perspective, the source of the document doesn't matter - it only sees the bulk request.
 
 ```
 Target Site (SPA / auth-required / complex pagination)
@@ -66,7 +66,7 @@ Use a custom crawler when the native Elastic web crawler cannot handle the targe
 
 ## Architecture Options
 
-### Option A — Python + requests (Static Sites)
+### Option A - Python + requests (Static Sites)
 
 For server-side rendered sites where HTML is returned directly. Simplest implementation, lowest overhead.
 
@@ -186,7 +186,7 @@ class StaticSiteCrawler:
 
 ---
 
-### Option B — Playwright Headless Browser (SPAs / JS-rendered)
+### Option B - Playwright Headless Browser (SPAs / JS-rendered)
 
 For sites where content is rendered by JavaScript. Playwright controls a real Chromium browser.
 
@@ -195,7 +195,7 @@ For sites where content is rendered by JavaScript. Playwright controls a real Ch
 """
 custom_crawler_spa.py
 Headless browser crawler for JavaScript-rendered sites.
-Uses Playwright — install with: pip install playwright && playwright install chromium
+Uses Playwright - install with: pip install playwright && playwright install chromium
 """
 import asyncio
 import hashlib
@@ -299,7 +299,7 @@ class SPACrawler:
 
 ---
 
-### Option C — Scrapy Framework (Large Scale)
+### Option C - Scrapy Framework (Large Scale)
 
 For large-scale crawls (100K+ pages) where you need built-in rate limiting, retries, middleware, and distributed crawling:
 
@@ -365,7 +365,7 @@ class KnowledgeCrawlerSpider(scrapy.Spider):
 Regardless of which crawler option you use, the indexing pattern is identical:
 
 ```python
-# Direct _bulk API (no connector framework — you manage everything)
+# Direct _bulk API (no connector framework - you manage everything)
 es.bulk(
     operations=[
         {"index": {"_index": f"search-kb-{tenant_id}", "_id": doc_id,
@@ -379,9 +379,9 @@ es.bulk(
 )
 ```
 
-The ingest pipeline (`kb-ingest-{tenant_id}`) handles Jina v3 embedding, GeoIP, and any normalisation — same pipeline used by native connectors.
+The ingest pipeline (`kb-ingest-{tenant_id}`) handles Jina v3 embedding, GeoIP, and any normalisation - same pipeline used by native connectors.
 
-**Important:** Custom crawlers do NOT manage `.elastic-connectors` or `.elastic-connector-sync-jobs`. You get no Kibana UI sync monitoring, no built-in scheduling — you manage these yourself (systemd timers, cron, Airflow, etc.).
+**Important:** Custom crawlers do NOT manage `.elastic-connectors` or `.elastic-connector-sync-jobs`. You get no Kibana UI sync monitoring, no built-in scheduling - you manage these yourself (systemd timers, cron, Airflow, etc.).
 
 ---
 
@@ -390,7 +390,7 @@ The ingest pipeline (`kb-ingest-{tenant_id}`) handles Jina v3 embedding, GeoIP, 
 ### CSS Selector Strategy
 
 ```python
-# Priority order — try each until content found
+# Priority order - try each until content found
 CONTENT_SELECTORS = [
     "article[role='main']",
     "main",
@@ -452,7 +452,7 @@ resp = session.post("https://site.com/login", data={
     "password": "pass",
     "_csrf_token": get_csrf_token(session, "https://site.com/login")
 })
-# 2. Session now has auth cookie — subsequent requests are authenticated
+# 2. Session now has auth cookie - subsequent requests are authenticated
 
 # OAuth 2.0 client credentials
 import requests_oauthlib
@@ -498,7 +498,7 @@ def fetch_if_modified(session, url, last_modified=None):
         headers["If-Modified-Since"] = last_modified
     resp = session.get(url, headers=headers)
     if resp.status_code == 304:
-        return None  # Not modified — skip
+        return None  # Not modified - skip
     return resp
 ```
 
@@ -511,8 +511,8 @@ def fetch_if_modified(session, url, last_modified=None):
 | No Elastic support | Custom crawlers are fully self-maintained. Elastic cannot help debug crawl logic. |
 | No Kibana sync monitoring | You don't get `.elastic-connector-sync-jobs` monitoring. Build your own monitoring (e.g. index a crawl run summary document). |
 | No scheduling built-in | Use systemd timers, cron, or an orchestrator (Airflow, Prefect). |
-| Playwright resource usage | Headless Chromium is heavy — 200–400 MB RAM per browser instance. On the connector VM (`m6i.xlarge`, 16 GB), run max 4 concurrent Playwright instances. |
-| Scrapy not installed by default | `pip install scrapy` — ensure it's in the connector VM's Python environment. |
+| Playwright resource usage | Headless Chromium is heavy - 200-400 MB RAM per browser instance. On the connector VM (`m6i.xlarge`, 16 GB), run max 4 concurrent Playwright instances. |
+| Scrapy not installed by default | `pip install scrapy` - ensure it's in the connector VM's Python environment. |
 | Anti-bot detection | Some sites (Cloudflare Enterprise) detect and block even stealth Playwright. No guaranteed solution. |
 | Content quality variability | HTML extraction quality depends entirely on your CSS selector configuration for each target site. Requires per-site tuning. |
 
@@ -529,7 +529,7 @@ Custom crawlers in the this deployment are typically used for:
 **Deployment pattern:**
 
 - Run as a systemd service on the same connector agent VM as the native connectors
-- Scheduled via systemd timer (not cron — better logging and dependency management)
+- Scheduled via systemd timer (not cron - better logging and dependency management)
 - Index into the same tenant index as native connectors (documents co-exist in one index)
 - Set `source: custom_web_crawler` field for operational filtering
 
@@ -575,15 +575,15 @@ WantedBy=timers.target
 ## Technical Q&A
 
 <details>
-<summary><strong>When Playwright navigates to a page and waits for "networkidle" — what does that actually mean and when is it insufficient?</strong></summary>
+<summary><strong>When Playwright navigates to a page and waits for "networkidle" - what does that actually mean and when is it insufficient?</strong></summary>
 
 `networkidle` means Playwright waits until there have been no more than 2 active network connections for at least 500 milliseconds. This is usually sufficient for SPAs to finish their initial data fetch and render.
 
 When it's insufficient:
-- **Lazy-loaded content** — content below the fold that loads on scroll. `networkidle` fires before the user would scroll, so that content is never fetched.
-- **Infinite scroll** — similar to above.
-- **WebSocket-based content** — WebSocket connections are persistent and don't contribute to the `networkidle` count. Content delivered via WebSocket after initial load may not be present.
-- **Deferred rendering** — some SPAs render content in `requestIdleCallback` or `setTimeout` calls after `networkidle` fires.
+- **Lazy-loaded content** - content below the fold that loads on scroll. `networkidle` fires before the user would scroll, so that content is never fetched.
+- **Infinite scroll** - similar to above.
+- **WebSocket-based content** - WebSocket connections are persistent and don't contribute to the `networkidle` count. Content delivered via WebSocket after initial load may not be present.
+- **Deferred rendering** - some SPAs render content in `requestIdleCallback` or `setTimeout` calls after `networkidle` fires.
 
 For these cases, use a content-based wait instead:
 ```python
@@ -601,10 +601,10 @@ await page.wait_for_function(
 <details>
 <summary><strong>How do you handle sites that rotate or regenerate CSRF tokens on every request?</strong></summary>
 
-CSRF tokens protect form submissions — for crawling read-only content, you typically don't need to handle CSRF unless the login form itself has one.
+CSRF tokens protect form submissions - for crawling read-only content, you typically don't need to handle CSRF unless the login form itself has one.
 
 For login forms with CSRF:
-1. GET the login page — extract the CSRF token from the hidden form field or meta tag
+1. GET the login page - extract the CSRF token from the hidden form field or meta tag
 2. Include the token in the POST body along with credentials
 3. The session now has an auth cookie for subsequent requests
 
@@ -621,24 +621,24 @@ def get_csrf_token(session: requests.Session, login_url: str) -> str:
     return token["value"] if token else ""
 ```
 
-Once logged in with a session cookie, CSRF handling is only needed if you're POST-ing data (you're not — you're just crawling GET requests). Subsequent page fetches don't require CSRF tokens.
+Once logged in with a session cookie, CSRF handling is only needed if you're POST-ing data (you're not - you're just crawling GET requests). Subsequent page fetches don't require CSRF tokens.
 
 </details>
 
 <details>
 <summary><strong>What's the memory and CPU profile of running Playwright concurrently on an m6i.xlarge connector VM alongside native connectors?</strong></summary>
 
-Playwright Chromium per instance: ~250 MB RAM at rest, spikes to 400–500 MB when rendering complex pages. CPU: 5–15% of a vCPU during page load and rendering.
+Playwright Chromium per instance: ~250 MB RAM at rest, spikes to 400-500 MB when rendering complex pages. CPU: 5-15% of a vCPU during page load and rendering.
 
 An `m6i.xlarge` has 4 vCPUs and 16 GB RAM. Native connector processes (Python) use ~150 MB each. With 4 connector processes at 150 MB = 600 MB, you have ~15 GB available for Playwright.
 
-Practical concurrent Playwright instances on `m6i.xlarge`: **2–3 maximum**, leaving headroom for the OS and other connector processes. More than 3 concurrent Playwright instances risks OOM on complex sites.
+Practical concurrent Playwright instances on `m6i.xlarge`: **2-3 maximum**, leaving headroom for the OS and other connector processes. More than 3 concurrent Playwright instances risks OOM on complex sites.
 
 For tenants requiring concurrent SPA crawls, either:
 - Run Playwright instances sequentially (one after another) within the same VM
 - Or provision a separate VM (`m6i.xlarge` or `c6i.2xlarge`) dedicated to SPA crawling
 
-Playwright also has a high cold-start overhead (~2–3 seconds to launch Chromium). Reuse a single `BrowserContext` across multiple pages within the same crawl session rather than launching a new browser per page.
+Playwright also has a high cold-start overhead (~2-3 seconds to launch Chromium). Reuse a single `BrowserContext` across multiple pages within the same crawl session rather than launching a new browser per page.
 
 </details>
 

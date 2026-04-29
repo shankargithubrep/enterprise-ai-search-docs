@@ -1,9 +1,30 @@
-# Enterprise AI Search - Elastic Connector & Crawler Docs
+# Enterprise AI Search — Technical Reference
 
-> Internal technical reference for the Enterprise AI Knowledge Retrieval platform.  
-> Covers Elastic connectors, web crawlers, and chunking strategies for the multi-tenant hybrid search deployment (BM25 + Jina v3 semantic, multi-region, self-managed AWS EC2).
+> Technical reference for the Enterprise AI Knowledge Retrieval platform.
+> Covers hybrid search framework, Elastic connectors, embedding models, deployment orchestration, and search testing scenarios.
+> **Deployment:** Multi-tenant, multi-region, self-managed AWS EC2 (no Docker / Kubernetes).
+> **Search:** BM25 + Jina v5 Small semantic + RRF fusion.
 
 ---
+
+## Hybrid Search Framework
+
+| Guide | Description | Status |
+|---|---|---|
+| [SharePoint Hybrid Search Framework](docs/framework/sharepoint-hybrid-search.md) | End-to-end guide: index creation, ingest pipeline (duplicate elimination + auth token stripping), Jina v5 Small embeddings, hybrid RRF queries, sync strategy, tenant replication, troubleshooting | ✅ Complete |
+
+## Search Testing Scenarios
+
+| Guide | Description | Status |
+|---|---|---|
+| [Search Testing Scenarios](docs/queries/search-testing-scenarios.md) | 20 copy-paste scenarios for Kibana Dev Tools: hybrid RRF, pure semantic, pure BM25, cross-lingual (Spanish, Portuguese), filtered search, highlighting, aggregations, pipeline verification, sync health | ✅ Complete |
+
+## Deployment & Operations
+
+| Guide | Description | Status |
+|---|---|---|
+| [VM Hosting & Scaling](docs/deployment/vm-hosting-scaling.md) | VM sizing (m6i.xlarge), systemd service, multi-connector single VM, horizontal/vertical/regional scaling, staggered sync, health monitoring, secret management, OS hardening | ✅ Complete |
+| [Orchestration & Failover](docs/deployment/orchestration-failover.md) | Ansible role skeleton, Kibana alerting (stale connector check-in), failover runbook (VM down, crash loop, secret expired), upgrade procedure, disaster recovery | ✅ Complete |
 
 ## Connectors
 
@@ -21,13 +42,13 @@
 
 | Guide | Description | Status |
 |---|---|---|
-| [Jina Embeddings](docs/embeddings/jina.md) | Complete reference - v3 (deployed), v4 (multimodal), v5 (latest), LoRA adapters, late chunking, asymmetric retrieval, HNSW, ONNX INT8, migration path | ✅ Complete |
+| [Jina Embeddings](docs/embeddings/jina.md) | Complete reference — v3, v4 (multimodal), v5 (latest). LoRA adapters, late chunking, asymmetric retrieval, HNSW, ONNX INT8, migration path v3 → v5 | ✅ Complete |
 
 ## Chunking Strategies
 
 | Guide | Description | Status |
 |---|---|---|
-| [Chunking Strategies](docs/chunking/strategies.md) | Fixed-window, recursive, semantic, parent-child, sentence window - with Jina v3, LangChain, LlamaIndex, and Elasticsearch native `semantic_text` | ✅ Complete |
+| [Chunking Strategies](docs/chunking/strategies.md) | Fixed-window, recursive, semantic, parent-child, sentence window — with Jina v3, LangChain, LlamaIndex, and Elasticsearch native `semantic_text` | ✅ Complete |
 
 ---
 
@@ -35,15 +56,16 @@
 
 | Parameter | Value |
 |---|---|
-| Platform | Contact Center as a Service platform |
-| Use case | Multi-tenant AI knowledge retrieval - agent assist, self-service bots |
-| Deployment | Self-managed AWS EC2 - no Docker / Kubernetes |
+| Platform | Genesys Cloud CX — Contact Center as a Service |
+| Use case | Multi-tenant AI knowledge retrieval — agent assist, self-service bots |
+| Deployment | Self-managed AWS EC2 — no Docker / Kubernetes |
 | Regions | Multi-region worldwide, one Elasticsearch cluster per region |
-| Standard tenants | ~50 per region (1,000s globally) |
+| Tenants | ~50 per region (1,200+ globally across 21 regions) |
 | ES version | 9.x (latest stable) |
-| Embedding model | Jina Embeddings v3 (ONNX INT8 quantized) |
-| Connector sources | Salesforce · ServiceNow · SharePoint Online · Confluence · S3 |
-| Connector agent VM | `m6i.xlarge` - 1 VM per 10-15 tenants, systemd-managed |
+| Embedding model | **Jina v5 Small** (1024 dims, cosine, 119+ languages, 32K context) |
+| Connector sources | SharePoint Online · Salesforce · ServiceNow · Confluence · S3 |
+| Connector VM | `m6i.xlarge` — 1 VM per 10-15 tenants, systemd-managed bare Python process |
+| Search | BM25 + Jina v5 Small semantic + RRF rank fusion |
 
 ---
 
@@ -53,30 +75,37 @@
 .
 ├── README.md
 ├── docs/
+│   ├── framework/
+│   │   └── sharepoint-hybrid-search.md   ← Start here
+│   ├── queries/
+│   │   └── search-testing-scenarios.md   ← 20 Dev Tools scenarios
+│   ├── deployment/
+│   │   ├── vm-hosting-scaling.md
+│   │   └── orchestration-failover.md
 │   ├── connectors/
 │   │   ├── s3.md
-│   │   ├── sharepoint.md          # coming soon
-│   │   ├── salesforce.md          # coming soon
-│   │   ├── servicenow.md          # coming soon
-│   │   ├── confluence.md          # coming soon
-│   │   ├── web-crawler.md         # coming soon
-│   │   └── custom-crawler.md      # coming soon
+│   │   ├── sharepoint.md
+│   │   ├── salesforce.md
+│   │   ├── servicenow.md
+│   │   ├── confluence.md
+│   │   ├── web-crawler.md
+│   │   └── custom-crawler.md
+│   ├── embeddings/
+│   │   └── jina.md
 │   └── chunking/
-│       └── strategies.md          # coming soon
+│       └── strategies.md
 └── .github/
-    ├── workflows/
-    │   ├── markdown-lint.yml
-    │   ├── link-check.yml
-    │   └── build-pdf.yml
     └── PULL_REQUEST_TEMPLATE.md
 ```
 
 ---
 
-## Contributing
+## Quick Start
 
-See [PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) for the checklist when adding or updating a connector doc.
+1. Read [SharePoint Hybrid Search Framework](docs/framework/sharepoint-hybrid-search.md) — covers the full pipeline from connector setup to hybrid search
+2. Open **Kibana → Dev Tools** and run the [Search Testing Scenarios](docs/queries/search-testing-scenarios.md) to verify search quality
+3. For production deployment, follow [VM Hosting & Scaling](docs/deployment/vm-hosting-scaling.md) and [Orchestration & Failover](docs/deployment/orchestration-failover.md)
 
 ---
 
-*Maintained by Elastic Solutions Architecture · For Enterprise AI-KB deployment*
+*Maintained by Elastic Solutions Architecture*

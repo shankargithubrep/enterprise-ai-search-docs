@@ -1,6 +1,6 @@
 # Search Testing Scenarios — Dev Tools Reference
 
-> **Index:** `content-sharepoint-jina-v5-small` · **Model:** Jina v5 Small (1024 dims) · **Search modes:** BM25, Semantic, Hybrid RRF, Cross-lingual, Filtered
+> **Indexes:** `content-sharepoint-jina-v5-small` (production), `content-sharepoint-ltr-lab` (LTR experimentation) · **Models:** Jina v5 Small (embedding), Jina Reranker v3 (cross-encoder), genesys-ltr-v1 (XGBoost LambdaMART) · **Search modes:** BM25, Semantic, Hybrid RRF, RRF + Reranker, BM25 + LTR, Cross-lingual, Filtered
 
 Open **Kibana → Dev Tools** and paste each query block to test. Each scenario demonstrates a specific search capability with expected behavior.
 
@@ -29,6 +29,15 @@ Open **Kibana → Dev Tools** and paste each query block to test. Each scenario 
 - [Scenario 19 — Multi-Field Boosting](#scenario-19--multi-field-boosting)
 - [Scenario 20 — Playground Integration](#scenario-20--playground-integration)
 - [How to Interpret Results](#how-to-interpret-results)
+- **Advanced Ranking Pipelines (Scenarios 21–28)**
+- [Scenario 21 — Pre-Flight: Verify Jina Reranker v3 Endpoint](#scenario-21--pre-flight-verify-jina-reranker-v3-endpoint)
+- [Scenario 22 — Pre-Flight: Verify LTR Model Deployment](#scenario-22--pre-flight-verify-ltr-model-deployment)
+- [Scenario 23 — Pipeline A: RRF + Jina Reranker v3 (Production)](#scenario-23--pipeline-a-rrf--jina-reranker-v3-production)
+- [Scenario 24 — Pipeline B: RRF Only (No Reranker)](#scenario-24--pipeline-b-rrf-only-no-reranker)
+- [Scenario 25 — Pipeline C: BM25 + LTR Rescore](#scenario-25--pipeline-c-bm25--ltr-rescore)
+- [Scenario 26 — Pipeline D: Plain BM25 Baseline](#scenario-26--pipeline-d-plain-bm25-baseline)
+- [Scenario 27 — Side-by-Side: 4-Pipeline Comparison](#scenario-27--side-by-side-4-pipeline-comparison)
+- [Scenario 28 — Latency Profiling: Measure Pipeline Overhead](#scenario-28--latency-profiling-measure-pipeline-overhead)
 
 ---
 
@@ -799,4 +808,493 @@ BM25 scores are unbounded (higher is better). They depend on term frequency, doc
 
 ---
 
-*Last updated: April 2026 · Index: content-sharepoint-jina-v5-small · Jina v5 Small · Elasticsearch 9.x*
+---
+
+## Advanced Ranking Pipelines (Scenarios 21–28)
+
+> **Why this section exists:** Scenarios 1–20 cover the core hybrid search stack — BM25, semantic, RRF fusion, filters, and index health. Scenarios 21–28 extend that with two production-grade ranking layers:
+>
+> - **Jina Reranker v3** — a cross-encoder model that reads the full query+document pair and produces a fine-grained relevance score. Unlike embedding-based retrieval (which compares compressed vectors), cross-encoders see the actual text and catch nuances that vector similarity misses.
+> - **Learning to Rank (LTR)** — an XGBoost LambdaMART model trained on multi-signal features (BM25 score, semantic score, rank positions, document size). Deployed to ES and applied as a rescore pass over BM25 results.
+>
+> **Important ES constraint:** Elasticsearch does not allow combining the `retriever` API (used by RRF) with `rescore` (used by LTR) in the same request. This means RRF+Reranker and BM25+LTR are separate pipeline options — you choose one or the other based on your use case.
+>
+> **Recommended sequence:** Run scenarios 21–22 first (pre-flight checks), then 23–26 (individual pipelines), then 27–28 (comparison and profiling). Each scenario builds on the previous understanding.
+
+---
+
+### Indexes Used in This Section
+
+| Index | Purpose | Doc Count |
+|---|---|---|
+| `content-sharepoint-jina-v5-small` | Production index — supports RRF, Reranker, and baseline queries | ~6,858 |
+| `content-sharepoint-ltr-lab` | LTR experimentation — duplicate of production with `genesys-ltr-v1` model deployed | ~6,858 |
+
+The LTR lab index is a full copy of the production index, created specifically so LTR experiments never affect production search quality. All Pipeline C (LTR) queries target this index.
+
+---
+
+## Scenario 21 — Pre-Flight: Verify Jina Reranker v3 Endpoint
+
+**What it tests:** Confirms the Jina Reranker v3 cross-encoder inference endpoint is deployed and healthy. This endpoint powers Pipeline A (RRF + Reranker). If this check fails, Pipeline A queries will return errors.
+
+**Why run this first:** The reranker is an ML model running on Elastic's inference infrastructure. It can be unavailable if the deployment was deleted, the ML node is overloaded, or the endpoint name changed. Always verify before running reranker queries.
+
+```json
+GET _inference/rerank/.jina-reranker-v3
+```
+
+**What to look for in the response:**
+
+```json
+{
+  "endpoints": [{
+    "inference_id": ".jina-reranker-v3",
+    "task_type": "rerank",
+    "service": "elastic",
+    "service_settings": {
+      "model_id": "jina-reranker-v3"
+    }
+  }]
+}
+```
+
+- `task_type` must be `rerank` (not `text_embedding`)
+- `service` should be `elastic` (Elastic Inference Service — managed, no infra to maintain)
+- If you get a 404, the endpoint needs to be created — see the framework doc for setup instructions
+
+**Also check the other available rerankers** (useful to know what's deployed):
+
+```json
+GET _inference/rerank
+```
+
+This lists all rerank endpoints. You may see `.jina-reranker-v2-base-multilingual` and `.rerank-v1-elasticsearch` alongside v3. We use v3 for best quality.
+
+---
+
+## Scenario 22 — Pre-Flight: Verify LTR Model Deployment
+
+**What it tests:** Confirms the XGBoost LambdaMART ranking model `genesys-ltr-v1` is deployed to Elasticsearch's ML infrastructure. This model powers Pipeline C (BM25 + LTR rescore). If this check fails, Pipeline C queries will return errors.
+
+**Why run this first:** The LTR model is uploaded via eland and stored as a trained model in ES. Unlike inference endpoints (which are managed services), trained models can be accidentally deleted, fail to load, or have mismatched feature names. This check verifies the full deployment chain.
+
+```json
+GET _ml/trained_models/genesys-ltr-v1
+```
+
+**What to look for in the response:**
+
+```json
+{
+  "trained_model_configs": [{
+    "model_id": "genesys-ltr-v1",
+    "inference_config": {
+      "learning_to_rank": {
+        "feature_extractors": [...]
+      }
+    },
+    "input": {
+      "field_names": [
+        "bm25_score",
+        "semantic_score",
+        "bm25_rank",
+        "semantic_rank",
+        "doc_size"
+      ]
+    }
+  }]
+}
+```
+
+- `inference_config` must contain `learning_to_rank` (not `regression` or `classification`)
+- `field_names` must list exactly 5 features in this order — these must match the feature extractors
+- `feature_extractors` should have 5 entries, one per feature
+- If the model is missing, it needs to be retrained and deployed — see `scripts/ltr-training/train_and_deploy_ltr.py`
+
+**Check model stats** (memory usage, inference count):
+
+```json
+GET _ml/trained_models/genesys-ltr-v1/_stats
+```
+
+This shows whether the model has been loaded into memory and how many inference requests it has served. A model with `inference_count: 0` has been deployed but never used.
+
+---
+
+## Scenario 23 — Pipeline A: RRF + Jina Reranker v3 (Production)
+
+**What it tests:** The full production-recommended search pipeline. First, RRF fuses BM25 keyword results and Jina v5 Small semantic results into a combined ranking. Then, the Jina Reranker v3 cross-encoder rescores the top candidates by reading the actual query-document text pairs.
+
+**Why this is the best pipeline:** RRF provides broad recall (catching both keyword and semantic matches). The reranker provides precision — it reads the full document text against the query and can detect subtle relevance signals that neither BM25 nor vector similarity captures. The tradeoff is latency: the reranker adds ~200-500ms per query (tunable via `rank_window_size`).
+
+**How the query works step by step:**
+1. The outer `text_similarity_reranker` retriever wraps the inner `rrf` retriever
+2. RRF runs both BM25 and semantic retrievers, each returning up to `rank_window_size: 50` candidates
+3. RRF merges the two lists using rank fusion (`RRF_score = Σ 1/(60 + rank)`)
+4. The reranker takes the top 20 RRF results (`rank_window_size: 20`) and rescores them using Jina Reranker v3
+5. Final results are ordered by the cross-encoder relevance score
+
+```json
+POST content-sharepoint-jina-v5-small/_search
+{
+  "retriever": {
+    "text_similarity_reranker": {
+      "retriever": {
+        "rrf": {
+          "retrievers": [
+            {
+              "standard": {
+                "query": {
+                  "multi_match": {
+                    "query": "how to reset password",
+                    "fields": ["title^2", "body"]
+                  }
+                }
+              }
+            },
+            {
+              "standard": {
+                "query": {
+                  "semantic": {
+                    "field": "semantic_body",
+                    "query": "how to reset password"
+                  }
+                }
+              }
+            }
+          ],
+          "rank_window_size": 50,
+          "rank_constant": 60
+        }
+      },
+      "field": "body",
+      "inference_id": ".jina-reranker-v3",
+      "inference_text": "how to reset password",
+      "rank_window_size": 20
+    }
+  },
+  "size": 5,
+  "_source": ["title", "webUrl"]
+}
+```
+
+**Critical constraint — `rank_window_size` alignment:**
+The reranker's `rank_window_size` (20) must be **less than or equal to** the inner RRF's `rank_window_size` (50). If the reranker requests more candidates than RRF produces, ES returns a validation error. This is a common mistake.
+
+**Tuning the reranker:**
+
+| Parameter | Current | Effect of increasing |
+|---|---|---|
+| Reranker `rank_window_size` | 20 | More candidates rescored → better quality but higher latency |
+| RRF `rank_window_size` | 50 | Broader candidate pool for RRF → must be ≥ reranker window |
+| `size` | 5 | Final results returned to the user |
+
+**Expected results:** Password reset documents should dominate the top positions, with the reranker promoting the most directly relevant docs (like `Reset_your_password.md`) above tangentially related ones.
+
+---
+
+## Scenario 24 — Pipeline B: RRF Only (No Reranker)
+
+**What it tests:** Hybrid search with RRF fusion but without the reranker pass. This is the same query from Scenario 1, included here for direct comparison with Pipeline A.
+
+**When to use this pipeline:** When latency is critical (sub-100ms target) and you cannot afford the reranker's ~200-500ms overhead. RRF alone provides good quality for most queries — the reranker adds marginal improvement for ambiguous or nuanced queries.
+
+```json
+POST content-sharepoint-jina-v5-small/_search
+{
+  "retriever": {
+    "rrf": {
+      "retrievers": [
+        {
+          "standard": {
+            "query": {
+              "multi_match": {
+                "query": "how to reset password",
+                "fields": ["title^2", "body"]
+              }
+            }
+          }
+        },
+        {
+          "standard": {
+            "query": {
+              "semantic": {
+                "field": "semantic_body",
+                "query": "how to reset password"
+              }
+            }
+          }
+        }
+      ],
+      "rank_window_size": 50,
+      "rank_constant": 60
+    }
+  },
+  "size": 5,
+  "_source": ["title", "webUrl"]
+}
+```
+
+**How to compare with Pipeline A:** Run both Scenario 23 and Scenario 24 with the same query. Compare the ordering of the top 5 results. For straightforward queries like "how to reset password," the results may be identical. For ambiguous queries like "how to handle agent issues" (is this about contact center agents or software agents?), the reranker will produce noticeably better ordering.
+
+---
+
+## Scenario 25 — Pipeline C: BM25 + LTR Rescore
+
+**What it tests:** Traditional BM25 keyword search enhanced by a machine-learned ranking model. BM25 retrieves the initial candidate set, then the LTR model rescores the top 50 candidates using 5 features: `bm25_score`, `semantic_score`, `bm25_rank`, `semantic_rank`, and `doc_size`.
+
+**Why this is a different architecture:** This pipeline uses ES's `rescore` API instead of the `retriever` API. The `rescore` approach runs a second scoring pass over the top N results from the primary query. This is fundamentally different from RRF (which merges two retriever rankings) — here, BM25 does all the retrieval, and the LTR model reorders the results.
+
+**Important:** This query targets `content-sharepoint-ltr-lab` (the LTR experimentation index), not the production index.
+
+```json
+POST content-sharepoint-ltr-lab/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "how to reset password",
+      "fields": ["title^2", "body"]
+    }
+  },
+  "rescore": {
+    "learning_to_rank": {
+      "model_id": "genesys-ltr-v1",
+      "params": {
+        "query_string": "how to reset password"
+      }
+    },
+    "window_size": 50
+  },
+  "size": 5,
+  "_source": ["title", "webUrl"]
+}
+```
+
+**How the LTR rescore works step by step:**
+1. BM25 retrieves all documents matching the query terms, scored by term frequency and document length
+2. The `rescore` pass takes the top 50 results (`window_size: 50`)
+3. For each of those 50 documents, ES runs the 5 feature extractors defined in the model:
+   - `bm25_score`: re-runs `match` on `body` field to get BM25 score
+   - `semantic_score`: runs `match` on `title` field
+   - `bm25_rank`: function_score on `body` match
+   - `semantic_rank`: function_score on `title` match
+   - `doc_size`: reads the `size` field value
+4. The XGBoost model takes these 5 features and produces a ranking score
+5. Results are reordered by the model's output score
+
+**`params.query_string` is required:** The LTR model's feature extractors use `{{query_string}}` as a template variable. The `params` object supplies this value at query time. Omitting it causes a template rendering error.
+
+**Current limitations:** This model was trained on synthetic judgments (auto-labeled via BM25/semantic rank agreement). The feature extractors use simplified queries (e.g., `match` on `title` for `semantic_score`) that don't exactly replicate the training-time features. For production use, the model should be retrained with feature extractors that match the inference-time queries.
+
+---
+
+## Scenario 26 — Pipeline D: Plain BM25 Baseline
+
+**What it tests:** Raw keyword search with no ML enhancement — no semantic vectors, no reranker, no LTR. This is the baseline against which all other pipelines are measured.
+
+**Why include a baseline:** Without a baseline, you cannot quantify the improvement from semantic search, RRF fusion, reranking, or LTR. Every search quality evaluation starts with "how much better is X than plain BM25?"
+
+```json
+POST content-sharepoint-jina-v5-small/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "how to reset password",
+      "fields": ["title^2", "body"]
+    }
+  },
+  "size": 5,
+  "_source": ["title", "webUrl"]
+}
+```
+
+**What to look for:** BM25 performs well for exact keyword queries like "reset password" — expect relevant results. Where BM25 falls short:
+- **Paraphrase queries** ("credential recovery procedure") — BM25 needs exact word matches
+- **Conceptual queries** ("how to handle angry customers") — BM25 cannot infer meaning
+- **Cross-lingual queries** ("como configurar el telefono") — BM25 only matches the indexed language
+
+Compare this result set against Pipelines A, B, and C using the same query. The differences reveal what each ranking layer adds.
+
+---
+
+## Scenario 27 — Side-by-Side: 4-Pipeline Comparison
+
+**What it tests:** Runs the same 6 test queries across all 4 pipelines to produce a comparison matrix. This is the most important evaluation — it shows the concrete impact of each ranking layer on real queries.
+
+**How to use this scenario:** Run each query block below in Dev Tools. For each query, record the top 3 document titles from each pipeline. Then compare:
+- Do the same documents appear across pipelines? (recall overlap)
+- Does the ordering change? (ranking quality)
+- Which pipeline surfaces the most relevant document at position #1? (precision@1)
+
+**Query 1 — Straightforward keyword query** (all pipelines should perform well):
+
+```json
+// Pipeline A: RRF + Reranker
+POST content-sharepoint-jina-v5-small/_search
+{
+  "retriever": {
+    "text_similarity_reranker": {
+      "retriever": {
+        "rrf": {
+          "retrievers": [
+            { "standard": { "query": { "multi_match": { "query": "how to reset password", "fields": ["title^2", "body"] } } } },
+            { "standard": { "query": { "semantic": { "field": "semantic_body", "query": "how to reset password" } } } }
+          ],
+          "rank_window_size": 50, "rank_constant": 60
+        }
+      },
+      "field": "body", "inference_id": ".jina-reranker-v3", "inference_text": "how to reset password", "rank_window_size": 20
+    }
+  },
+  "size": 3, "_source": ["title"]
+}
+
+// Pipeline B: RRF only
+POST content-sharepoint-jina-v5-small/_search
+{
+  "retriever": { "rrf": { "retrievers": [
+    { "standard": { "query": { "multi_match": { "query": "how to reset password", "fields": ["title^2", "body"] } } } },
+    { "standard": { "query": { "semantic": { "field": "semantic_body", "query": "how to reset password" } } } }
+  ], "rank_window_size": 50, "rank_constant": 60 } },
+  "size": 3, "_source": ["title"]
+}
+
+// Pipeline C: BM25 + LTR (targets LTR lab index)
+POST content-sharepoint-ltr-lab/_search
+{
+  "query": { "multi_match": { "query": "how to reset password", "fields": ["title^2", "body"] } },
+  "rescore": { "learning_to_rank": { "model_id": "genesys-ltr-v1", "params": { "query_string": "how to reset password" } }, "window_size": 50 },
+  "size": 3, "_source": ["title"]
+}
+
+// Pipeline D: Plain BM25
+POST content-sharepoint-jina-v5-small/_search
+{
+  "query": { "multi_match": { "query": "how to reset password", "fields": ["title^2", "body"] } },
+  "size": 3, "_source": ["title"]
+}
+```
+
+**Query 2 — Paraphrase query** (semantic pipelines should outperform BM25):
+
+Replace the query text in all 4 pipeline blocks above with:
+```
+"credential recovery procedure"
+```
+
+**Query 3 — Conceptual query** (reranker should shine here):
+
+Replace the query text with:
+```
+"how to handle angry customers on a call"
+```
+
+**Query 4 — Technical configuration** (BM25 and LTR may do well with specific terms):
+
+Replace the query text with:
+```
+"WebRTC phone configuration settings"
+```
+
+**Query 5 — Cross-lingual Spanish** (only semantic pipelines will work):
+
+Replace the query text with:
+```
+"como configurar la integracion del telefono"
+```
+
+**Query 6 — Ambiguous intent** (reranker should disambiguate best):
+
+Replace the query text with:
+```
+"agent assist setup"
+```
+
+**Recording your results:**
+
+| Query | Pipeline A (RRF+Reranker) | Pipeline B (RRF) | Pipeline C (LTR) | Pipeline D (BM25) |
+|---|---|---|---|---|
+| reset password | #1: ? | #1: ? | #1: ? | #1: ? |
+| credential recovery | #1: ? | #1: ? | #1: ? | #1: ? |
+| angry customers | #1: ? | #1: ? | #1: ? | #1: ? |
+| WebRTC phone config | #1: ? | #1: ? | #1: ? | #1: ? |
+| Spanish integration | #1: ? | #1: ? | #1: ? | #1: ? |
+| agent assist setup | #1: ? | #1: ? | #1: ? | #1: ? |
+
+---
+
+## Scenario 28 — Latency Profiling: Measure Pipeline Overhead
+
+**What it tests:** Actual query latency for each pipeline, using Elasticsearch's `profile` API. This reveals exactly where time is spent — in BM25 scoring, vector search, RRF merging, reranker inference, or LTR rescoring.
+
+**Why latency matters:** The reranker and LTR add measurable overhead. For a real-time search UI (agent assist, self-service bot), you need to know whether the quality improvement justifies the latency cost. Typical targets:
+- **Agent assist (copilot suggestions):** < 500ms acceptable, < 200ms ideal
+- **Self-service portal search:** < 1s acceptable, < 500ms ideal
+- **Batch analytics:** latency not critical
+
+**Profile Pipeline A (RRF + Reranker) — highest quality, highest latency:**
+
+```json
+POST content-sharepoint-jina-v5-small/_search
+{
+  "profile": true,
+  "retriever": {
+    "text_similarity_reranker": {
+      "retriever": {
+        "rrf": {
+          "retrievers": [
+            { "standard": { "query": { "multi_match": { "query": "how to reset password", "fields": ["title^2", "body"] } } } },
+            { "standard": { "query": { "semantic": { "field": "semantic_body", "query": "how to reset password" } } } }
+          ],
+          "rank_window_size": 50, "rank_constant": 60
+        }
+      },
+      "field": "body", "inference_id": ".jina-reranker-v3", "inference_text": "how to reset password", "rank_window_size": 20
+    }
+  },
+  "size": 5, "_source": ["title"]
+}
+```
+
+**Profile Pipeline D (Plain BM25) — lowest latency baseline:**
+
+```json
+POST content-sharepoint-jina-v5-small/_search
+{
+  "profile": true,
+  "query": {
+    "multi_match": {
+      "query": "how to reset password",
+      "fields": ["title^2", "body"]
+    }
+  },
+  "size": 5, "_source": ["title"]
+}
+```
+
+**How to read the profile output:**
+
+The response includes a `profile` object with detailed timing for each query phase. Key numbers to look at:
+
+- `took` (top-level field): Total query time in milliseconds — this is what the user experiences
+- `profile.shards[].searches[].query[].time_in_nanos`: Time spent in query execution per shard
+- `profile.shards[].fetch.time_in_nanos`: Time spent fetching `_source` fields
+
+**Expected latency ranges:**
+
+| Pipeline | Typical Latency | What Drives It |
+|---|---|---|
+| D: Plain BM25 | 5–20ms | BM25 scoring only — CPU-bound, very fast |
+| B: RRF only | 50–200ms | BM25 + semantic vector search + RRF merge |
+| C: BM25 + LTR | 20–80ms | BM25 + XGBoost model inference (lightweight) |
+| A: RRF + Reranker | 200–800ms | Everything in B + cross-encoder inference on 20 docs |
+
+**Reducing Pipeline A latency:**
+- Lower `rank_window_size` on the reranker from 20 to 10 — fewer documents rescored
+- Lower RRF `rank_window_size` from 50 to 25 — fewer candidates for RRF to merge
+- These changes reduce latency at the cost of recall (you might miss a relevant document outside the window)
+
+---
+
+*Last updated: April 2026 · Indexes: content-sharepoint-jina-v5-small, content-sharepoint-ltr-lab · Models: Jina v5 Small, Jina Reranker v3, genesys-ltr-v1 · Elasticsearch 9.x*

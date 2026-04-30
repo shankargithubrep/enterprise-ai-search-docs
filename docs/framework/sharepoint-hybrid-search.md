@@ -1,6 +1,6 @@
 # SharePoint Online — Hybrid Search Framework
 
-> **Embedding model:** Jina v5 Small (1024 dims, cosine) · **Search:** BM25 + Semantic + RRF fusion · **Pipeline:** Duplicate elimination + auth token stripping + semantic enrichment · **Connector:** Elastic SharePoint Online (Microsoft Graph API)
+> **Embedding model:** Jina v5 Small (1024 dims, cosine) · **Reranker:** Jina Reranker v2 Multilingual (cross-encoder) · **LTR:** XGBoost LambdaMART (`genesys-ltr-v1`) · **Search:** BM25 + Semantic + RRF fusion + Reranker/LTR · **Pipeline:** Duplicate elimination + auth token stripping + semantic enrichment · **Connector:** Elastic SharePoint Online (Microsoft Graph API)
 
 ---
 
@@ -27,9 +27,15 @@
   - [8. Duplicate Detection Query](#8-duplicate-detection-query)
   - [9. Auth Token Leak Check](#9-auth-token-leak-check)
   - [10. Sync Health Check](#10-sync-health-check)
+- [Advanced Ranking — Reranker & LTR](#advanced-ranking--reranker--ltr)
+  - [Architecture: 4 Search Pipelines](#architecture-4-search-pipelines)
+  - [Pipeline A: RRF + Jina Reranker v2 Multilingual](#pipeline-a-rrf--jina-reranker-v2-multilingual)
+  - [Pipeline C: BM25 + LTR Rescore](#pipeline-c-bm25--ltr-rescore)
+  - [ES Constraint: retriever vs rescore](#es-constraint-retriever-vs-rescore)
 - [Sync Strategy](#sync-strategy)
 - [Replicating This Framework for a New Tenant](#replicating-this-framework-for-a-new-tenant)
 - [Troubleshooting](#troubleshooting)
+- [Benchmark Results — ES-Rally](#benchmark-results--es-rally)
 
 ---
 
@@ -1025,6 +1031,180 @@ GET .elastic-connector-sync-jobs/_search
 
 ---
 
+## Advanced Ranking — Reranker & LTR
+
+The base hybrid search stack (BM25 + Semantic + RRF) provides strong retrieval quality. Two additional ranking layers push quality further for production use cases that need precision over latency.
+
+### Architecture: 4 Search Pipelines
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │         Query: "how to reset password"   │
+                    └──────────┬──────────────────┬────────────┘
+                               │                  │
+              ┌────────────────▼────────┐   ┌─────▼──────────────────┐
+              │   retriever API path    │   │   query + rescore path  │
+              │  (RRF-based pipelines)  │   │   (LTR-based pipeline)  │
+              └────┬──────────┬─────────┘   └─────────┬──────────────┘
+                   │          │                       │
+           ┌───────▼──┐  ┌───▼───────┐        ┌──────▼──────┐
+           │  BM25     │  │ Semantic  │        │   BM25      │
+           │  Retriever│  │ Retriever │        │   Query     │
+           └───────┬──┘  └───┬───────┘        └──────┬──────┘
+                   │         │                       │
+              ┌────▼─────────▼────┐           ┌──────▼──────┐
+              │   RRF Fusion      │           │ LTR Rescore │
+              │   rank merging    │           │ XGBoost     │
+              └────────┬──────────┘           │ 5 features  │
+                       │                      └──────┬──────┘
+              ┌────────▼──────────┐                  │
+              │  Jina Reranker v2 │           Pipeline C
+              │  cross-encoder    │
+              │  (optional)       │
+              └────────┬──────────┘
+                       │
+           Pipeline A (with reranker)
+           Pipeline B (without reranker)
+```
+
+| Pipeline | Path | Quality | p50 Latency (benchmarked) | Throughput | Best For |
+|---|---|---|---|---|---|
+| **A: RRF + Reranker v2** | retriever API | Highest | 607ms | 4.9 ops/s | Agent assist, precision-critical search |
+| **B: RRF only** | retriever API | High | 321ms | 9.7 ops/s | Self-service portals, general search |
+| **C: BM25 + LTR** | query + rescore | Medium–High | 20–80ms | — | Low-latency with ML ranking |
+| **D: Plain BM25** | query only | Baseline | 172ms | 20.0 ops/s | Exact term lookups, autocomplete |
+
+*Latency and throughput numbers from ES-Rally benchmarks (2026-04-29, 1,550+ iterations, 0% error rate). See [Benchmark Results](#benchmark-results--es-rally).*
+
+### Pipeline A: RRF + Jina Reranker v2 Multilingual
+
+The production-recommended pipeline. RRF provides broad recall by fusing keyword and semantic results. The Jina Reranker v2 Multilingual cross-encoder then reads each query-document pair and produces a fine-grained relevance score — catching nuances that vector similarity misses.
+
+**Why v2 Multilingual over v3:** Benchmarked all combinations on 2026-04-29. Jina v2 Multilingual delivers 607ms p50 latency vs v3's 900–1,218ms — 40% faster with marginal relevance difference. v2 also handles EN+ES natively, which v3 handles less efficiently. For the Genesys POC with sub-second latency targets and Spanish agent base, v2 Multilingual is the clear winner.
+
+**Verify the reranker endpoint exists:**
+
+```json
+GET _inference/rerank/.jina-reranker-v2-base-multilingual
+```
+
+**Full query:**
+
+```json
+POST content-sharepoint-jina-v5-small/_search
+{
+  "retriever": {
+    "text_similarity_reranker": {
+      "retriever": {
+        "rrf": {
+          "retrievers": [
+            {
+              "standard": {
+                "query": {
+                  "multi_match": {
+                    "query": "how to reset password",
+                    "fields": ["title^2", "body"]
+                  }
+                }
+              }
+            },
+            {
+              "standard": {
+                "query": {
+                  "semantic": {
+                    "field": "semantic_body",
+                    "query": "how to reset password"
+                  }
+                }
+              }
+            }
+          ],
+          "rank_window_size": 50,
+          "rank_constant": 60
+        }
+      },
+      "field": "body",
+      "inference_id": ".jina-reranker-v2-base-multilingual",
+      "inference_text": "how to reset password",
+      "rank_window_size": 10
+    }
+  },
+  "size": 5,
+  "_source": ["title", "webUrl"]
+}
+```
+
+**Key constraints:**
+- The reranker's `rank_window_size` (10) must be ≤ the inner RRF's `rank_window_size` (50). ES validates this and returns an error if violated.
+- `rank_window_size: 10` is optimal for live demo/production use. Cross-encoder processes each doc individually — latency scales linearly. 10 halves the work vs 20 with minimal relevance impact.
+- The `field` parameter (`body`) tells the reranker which document field to read for scoring. Use the field with the most content.
+- The `inference_text` must match the user's query — it is paired with each document's `body` field for cross-encoder scoring.
+
+### Pipeline C: BM25 + LTR Rescore
+
+An XGBoost LambdaMART model trained on 5 features, deployed to ES via eland. BM25 retrieves candidates, then the model rescores the top 50 using learned feature weights.
+
+**Verify the model is deployed:**
+
+```json
+GET _ml/trained_models/genesys-ltr-v1
+```
+
+**Query (targets the LTR lab index):**
+
+```json
+POST content-sharepoint-ltr-lab/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "how to reset password",
+      "fields": ["title^2", "body"]
+    }
+  },
+  "rescore": {
+    "learning_to_rank": {
+      "model_id": "genesys-ltr-v1",
+      "params": {
+        "query_string": "how to reset password"
+      }
+    },
+    "window_size": 50
+  },
+  "size": 5,
+  "_source": ["title", "webUrl"]
+}
+```
+
+**Model details:**
+
+| Property | Value |
+|---|---|
+| Algorithm | XGBoost LambdaMART (`rank:ndcg`) |
+| Training data | 1,978 synthetic judgments across 41 queries |
+| Validation NDCG@5 | 0.977 |
+| Features | bm25_score, semantic_score, bm25_rank, semantic_rank, doc_size |
+| Feature importance | semantic_rank (0.51), bm25_rank (0.30), semantic_score (0.09), bm25_score (0.08), doc_size (0.02) |
+| Training scripts | `scripts/ltr-training/` |
+
+The model learns that `semantic_rank` is the strongest signal (0.51 importance) followed by `bm25_rank` (0.30) — meaning the model values *where* a document appears in each ranking over the raw scores themselves.
+
+### ES Constraint: retriever vs rescore
+
+Elasticsearch does not allow combining the `retriever` API and `rescore` in the same search request. This is an architectural constraint, not a bug.
+
+```
+✅  retriever { rrf { ... } }                          → Pipeline B (RRF only)
+✅  retriever { text_similarity_reranker { rrf { ... } } }  → Pipeline A (RRF + Reranker)
+✅  query { ... } + rescore { learning_to_rank { ... } }    → Pipeline C (BM25 + LTR)
+❌  retriever { rrf { ... } } + rescore { ... }             → Validation error
+```
+
+This means you cannot do RRF + LTR in a single query. If you need both semantic retrieval and LTR, the alternatives are:
+1. Use Pipeline A (RRF + Reranker) — the reranker serves the same purpose as LTR (rescoring) but uses a cross-encoder instead of learned features
+2. Use a two-stage application-level pipeline — run RRF first, then send the result IDs to a second LTR rescore query
+
+---
+
 ## Sync Strategy
 
 ### Incremental vs Full Sync
@@ -1207,4 +1387,71 @@ Apache Tika (used by the connector) silently skips files larger than 10MB. Check
 
 ---
 
-*Framework version: 1.0 · Embedding model: Jina v5 Small · Elasticsearch 9.x · Last updated: April 2026*
+## Benchmark Results — ES-Rally
+
+Performance benchmarks run on 2026-04-29 against the production `content-sharepoint-jina-v5-small` index (6,858 documents). All results use ES-Rally "service time" (actual Elasticsearch processing, excludes client-side queue wait).
+
+### Pipeline Comparison (Single Client, 4 Concurrent)
+
+| Pipeline | p50 Service Time | p90 Service Time | p99 Service Time | Mean Throughput | Error Rate |
+|---|---|---|---|---|---|
+| **D: BM25 Baseline** | 172ms | 258ms | 411ms | 20.0 ops/s | 0% |
+| **Semantic (Jina v5)** | 189ms | 268ms | 428ms | 9.8 ops/s | 0% |
+| **B: Hybrid RRF** | 321ms | 440ms | 584ms | 9.7 ops/s | 0% |
+| **A: RRF + Reranker v2** | 607ms | 750ms | 923ms | 4.9 ops/s | 0% |
+
+### Concurrency Stress Test (8 Simultaneous Clients)
+
+| Pipeline | p50 Service Time | p90 Service Time | Mean Throughput |
+|---|---|---|---|
+| BM25 | 186ms | 285ms | 38.0 ops/s |
+| Hybrid RRF | 351ms | 469ms | 19.5 ops/s |
+| RRF + Reranker v2 | 734ms | 892ms | 9.7 ops/s |
+
+BM25 and RRF scale linearly with concurrency. The reranker is the throughput ceiling — it saturates at ~5 ops/s per client due to sequential cross-encoder inference on Elastic Inference Service.
+
+### Multilingual Performance (German + English Queries)
+
+| Pipeline | p50 Service Time | p90 Service Time |
+|---|---|---|
+| RRF + Reranker v2 | 520ms | 662ms |
+| Hybrid RRF | 260ms | 389ms |
+
+No measurable latency degradation for multilingual queries. The Jina v2 Multilingual model handles cross-lingual reranking without penalty.
+
+### Cross-Index Consistency
+
+| Index | Pipeline | p50 Service Time | Mean Throughput |
+|---|---|---|---|
+| `genesys_faq_sop` (FAQ) | BM25 | 171ms | 20.0 ops/s |
+| `enterprise_pdf_chunks` (PDF) | BM25 | 172ms | 16.9 ops/s |
+| `genesys_faq_sop` (FAQ) | Semantic | 197ms | 9.8 ops/s |
+| `enterprise_pdf_chunks` (PDF) | Semantic | 181ms | 9.7 ops/s |
+
+BM25 and semantic search performance is consistent across index types. Slight throughput difference on PDFs is due to larger average document size.
+
+### Reranker Model Comparison (Tested 2026-04-29)
+
+| Model | rank_window_size | p50 Latency | Decision |
+|---|---|---|---|
+| `.jina-reranker-v2-base-multilingual` | 10 | ~607ms | **Selected for production** |
+| `.jina-reranker-v2-base-multilingual` | 20 | ~640ms | Viable fallback |
+| `.jina-reranker-v3` | 10 | ~900ms | Too slow for live agents |
+| `.jina-reranker-v3` | 20 | ~1,218ms | Too slow |
+| `.rerank-v1-elasticsearch` (local ELSER) | — | ~10,000–13,000ms | Ruled out — CPU bottleneck |
+
+Local ELSER reranker was tested on upgraded ML nodes (32GB total, 16GB x 2 zones, 16.8 vCPU). The 10–13 second latency is a CPU compute limitation — adding memory does not help. ELSER is definitively not viable for reranking at any node size.
+
+### Test Methodology
+
+- **Tool:** [ES-Rally](https://esrally.readthedocs.io/)
+- **Track:** Custom (`tracks/genesys_sharepoint/track.json`)
+- **Total iterations:** 1,550+
+- **Warmup:** 5–20 iterations per operation (excluded from results)
+- **Client concurrency:** 4 (default), 8 (stress test), 2 (multilingual)
+- **Caching:** Disabled (`"cache": false` on all operations)
+- **Error rate:** 0% across all scenarios
+
+---
+
+*Framework version: 1.2 · Embedding: Jina v5 Small · Reranker: Jina Reranker v2 Multilingual · LTR: genesys-ltr-v1 (XGBoost) · Elasticsearch 9.x · Last updated: 2026-04-29*

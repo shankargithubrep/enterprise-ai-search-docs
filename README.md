@@ -11,13 +11,13 @@
 
 | Guide | Description | Status |
 |---|---|---|
-| [SharePoint Hybrid Search Framework](docs/framework/sharepoint-hybrid-search.md) | End-to-end guide: index creation, ingest pipeline (duplicate elimination + auth token stripping), Jina v5 Small embeddings, hybrid RRF queries, sync strategy, tenant replication, troubleshooting | ✅ Complete |
+| [SharePoint Hybrid Search Framework](docs/framework/sharepoint-hybrid-search.md) | End-to-end guide: index creation, ingest pipeline (duplicate elimination + auth token stripping), Jina v5 Small embeddings, hybrid RRF queries, Jina Reranker v2 Multilingual, XGBoost LTR, 4-pipeline architecture, sync strategy, tenant replication, troubleshooting | ✅ Complete |
 
 ## Search Testing Scenarios
 
 | Guide | Description | Status |
 |---|---|---|
-| [Search Testing Scenarios](docs/queries/search-testing-scenarios.md) | 20 copy-paste scenarios for Kibana Dev Tools: hybrid RRF, pure semantic, pure BM25, cross-lingual (Spanish, Portuguese), filtered search, highlighting, aggregations, pipeline verification, sync health | ✅ Complete |
+| [Search Testing Scenarios](docs/queries/search-testing-scenarios.md) | 28 copy-paste scenarios for Kibana Dev Tools: hybrid RRF, pure semantic, pure BM25, cross-lingual, filtered search, highlighting, aggregations, pipeline verification, sync health + advanced ranking (RRF + Reranker, BM25 + LTR, 4-pipeline comparison, latency profiling) | ✅ Complete |
 
 ## Deployment & Operations
 
@@ -65,7 +65,7 @@
 | Embedding model | **Jina v5 Small** (1024 dims, cosine, 119+ languages, 32K context) |
 | Connector sources | SharePoint Online · Salesforce · ServiceNow · Confluence · S3 |
 | Connector VM | `m6i.xlarge` — 1 VM per 10-15 tenants, systemd-managed bare Python process |
-| Search | BM25 + Jina v5 Small semantic + RRF rank fusion |
+| Search | BM25 + Jina v5 Small semantic + RRF rank fusion + Jina Reranker v2 Multilingual + XGBoost LTR |
 
 ---
 
@@ -78,7 +78,7 @@
 │   ├── framework/
 │   │   └── sharepoint-hybrid-search.md   ← Start here
 │   ├── queries/
-│   │   └── search-testing-scenarios.md   ← 20 Dev Tools scenarios
+│   │   └── search-testing-scenarios.md   ← 28 Dev Tools scenarios
 │   ├── deployment/
 │   │   ├── vm-hosting-scaling.md
 │   │   └── orchestration-failover.md
@@ -94,6 +94,8 @@
 │   │   └── jina.md
 │   └── chunking/
 │       └── strategies.md
+├── scripts/
+│   └── ltr-training/                    ← XGBoost LTR model training & deployment
 └── .github/
     └── PULL_REQUEST_TEMPLATE.md
 ```
